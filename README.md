@@ -1,39 +1,182 @@
-## BACKEND FOLDER STRUCTURE
+# IRIS - Intelligent Infrared Image Enhancement & Interpretation System
+
+## Backend Folder Structure
+
+```text
 backend/
-├── app/                        # Main FastAPI application package
-│   ├── ai_models/              # AI model loading, inference wrappers, and Gemini API client
-│   │   ├── colorization_model.py
-│   │   ├── enhancement_model.py
-│   │   ├── gemini_client.py
-│   │   ├── inference.py
+│
+├── app/
+│   │
+│   ├── main.py
+│   ├── dependencies.py
+│   │
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   └── routes/
+│   │       ├── health.py
+│   │       ├── upload.py
+│   │       ├── preprocessing.py
+│   │       ├── enhancement.py
+│   │       ├── colorization.py
+│   │       ├── detection.py
+│   │       ├── analysis.py
+│   │       ├── report.py
+│   │       ├── comparison.py
+│   │       ├── dashboard.py
+│   │       ├── download.py
+│   │       └── session.py
+│   │
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── constants.py
+│   │   ├── logging.py
+│   │   ├── security.py
+│   │   └── settings.py
+│   │
+│   ├── database/
+│   │   ├── connection.py
+│   │   ├── mongodb.py
+│   │   └── indexes.py
+│   │
+│   ├── middleware/
+│   │   ├── cors.py
+│   │   ├── error_handler.py
+│   │   ├── request_logger.py
+│   │   └── exception_handler.py
+│   │
+│   ├── models/
+│   │   ├── image_model.py
+│   │   ├── report_model.py
+│   │   ├── comparison_model.py
+│   │   ├── analysis_model.py
+│   │   ├── dashboard_model.py
+│   │   └── session_model.py
+│   │
+│   ├── schemas/
+│   │   ├── upload_schema.py
+│   │   ├── preprocessing_schema.py
+│   │   ├── enhancement_schema.py
+│   │   ├── colorization_schema.py
+│   │   ├── detection_schema.py
+│   │   ├── analysis_schema.py
+│   │   ├── report_schema.py
+│   │   ├── comparison_schema.py
+│   │   ├── dashboard_schema.py
+│   │   └── response_schema.py
+│   │
+│   ├── services/
+│   │   ├── upload/
+│   │   │   ├── upload_service.py
+│   │   │   └── validation_service.py
+│   │   │
+│   │   ├── preprocessing/
+│   │   │   ├── crop_service.py
+│   │   │   ├── resize_service.py
+│   │   │   ├── noise_reduction.py
+│   │   │   ├── contrast_enhancement.py
+│   │   │   └── normalization.py
+│   │   │
+│   │   ├── ai/
+│   │   │   ├── enhancement_service.py
+│   │   │   ├── colorization_service.py
+│   │   │   ├── object_detection_service.py
+│   │   │   ├── scene_analysis_service.py
+│   │   │   └── report_generation_service.py
+│   │   │
+│   │   ├── dashboard/
+│   │   │   ├── dashboard_service.py
+│   │   │   └── comparison_service.py
+│   │   │
+│   │   ├── storage/
+│   │   │   ├── image_storage.py
+│   │   │   ├── report_storage.py
+│   │   │   └── metadata_storage.py
+│   │   │
+│   │   ├── download/
+│   │   │   └── download_service.py
+│   │   │
+│   │   └── session/
+│   │       └── session_service.py
+│   │
+│   ├── ai_models/
 │   │   ├── model_loader.py
-│   │   └── yolov8_model.py
-│   ├── api/                    # API Routers and Route Endpoints
-│   │   ├── routes/             # Feature-specific endpoints (upload, colorization, report, etc.)
-│   │   └── router.py           # Main API router combining all routes
-│   ├── core/                   # Security, settings, and logging configurations
-│   ├── database/               # Database connection managers (MongoDB)
-│   ├── middleware/             # CORS, global exceptions, and request loggers
-│   ├── models/                 # MongoDB collections/documents schemas (ODM)
-│   ├── schemas/                # Pydantic request/response validation schemas
-│   ├── services/               # Core business logic services
-│   │   ├── ai/                 # Core AI service wrappers (YOLO, Enhancement, scene analysis)
-│   │   ├── dashboard/          # Dashboard analytics & comparison service
-│   │   ├── download/           # Download management
-│   │   ├── preprocessing/      # Preprocessors (contrast, noise reduction, crop, normalization)
-│   │   ├── session/            # User sessions management
-│   │   ├── storage/            # File storage handlers (saving images & reports)
-│   │   └── upload/             # Upload handling & validations
-│   ├── utils/                  # Miscellaneous helper utilities (image processing, file helper, formatting)
-│   └── dependencies.py         # FastAPI dependency injection definitions
-├── prompts/                    # LLM System Prompts (e.g., scene_analysis_prompt.txt)
-├── tests/                      # Automated unit test suite
-├── weights/                    # Local storage folder for AI model weight files (.pt, .pth)
-├── uploads/                    # Temporary storage for uploaded source files (ignored by git)
-├── outputs/                    # Temporary storage for generated results/reports (ignored by git)
-├── static/                     # Static files directory
-├── Dockerfile                  # Container configuration for the backend service
-├── docker-compose.yml          # Docker compose file for multi-container orchestration
-├── requirements.txt            # Python packages dependencies
-├── .env.example                # Example environment configuration file
-└── README.md                   # Backend README documentation
+│   │   ├── enhancement_model.py
+│   │   ├── colorization_model.py
+│   │   ├── yolov8_model.py
+│   │   ├── gemini_client.py
+│   │   └── inference.py
+│   │
+│   ├── utils/
+│   │   ├── image_utils.py
+│   │   ├── file_utils.py
+│   │   ├── report_utils.py
+│   │   ├── validation_utils.py
+│   │   ├── helper.py
+│   │   ├── logger.py
+│   │   └── response.py
+│
+├── uploads/
+│   ├── raw/
+│   ├── validated/
+│   ├── resized/
+│   └── temp/
+│
+├── outputs/
+│   ├── enhanced/
+│   ├── colorized/
+│   ├── detected/
+│   ├── analyzed/
+│   ├── reports/
+│   ├── comparisons/
+│   └── final/
+│
+├── prompts/
+│   └── scene_analysis_prompt.txt
+│
+├── weights/
+│   ├── enhancement_model.pth
+│   ├── colorization_model.pth
+│   └── yolov8.pt
+│
+├── static/
+├── tests/
+│
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Backend Modules
+
+- **API** – REST API endpoints using FastAPI.
+- **Core** – Application configuration and settings.
+- **Database** – MongoDB connection and database operations.
+- **Middleware** – Error handling, CORS, and request logging.
+- **Models** – Database models.
+- **Schemas** – Request and response validation using Pydantic.
+- **Services** – Business logic for image processing and AI workflows.
+- **AI Models** – Image enhancement, colorization, object detection, and scene analysis.
+- **Utils** – Helper functions and reusable utilities.
+- **Uploads** – Stores uploaded infrared images.
+- **Outputs** – Stores processed images, reports, and results.
+- **Prompts** – Gemini prompts for scene understanding.
+- **Weights** – AI model weight files.
+- **Tests** – Unit and integration tests.
+
+---
+
+## Technology Stack
+
+- **Backend:** FastAPI, Python
+- **Database:** MongoDB Atlas
+- **AI Models:** PyTorch, YOLOv8, Gemini API
+- **Image Processing:** OpenCV, Pillow, NumPy
+- **PDF Reports:** ReportLab
+- **Containerization:** Docker
+- **Version Control:** Git & GitHub

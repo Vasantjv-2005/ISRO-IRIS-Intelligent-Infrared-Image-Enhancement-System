@@ -1,0 +1,29 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment Variables
+.env
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Uploads
+uploads/
+outputs/
+
+# AI Model Weights
+weights/
+
+# OS Files
+.DS_Store
+Thumbs.db

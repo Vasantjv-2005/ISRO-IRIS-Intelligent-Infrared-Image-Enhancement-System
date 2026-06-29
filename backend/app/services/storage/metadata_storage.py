@@ -19,7 +19,7 @@ class MetadataStorageService:
     """
 
     def __init__(self):
-        self.collection_name = "image_metadata"
+        self.collection_name = "images"
 
     async def save_metadata(
         self,

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.router import router
+from app.core.router import api_router
 from app.core.config import (
     PROJECT_DESCRIPTION,
     PROJECT_NAME,
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
     await create_indexes()
 
-    print("🚀 IRIS Backend Started Successfully")
+    print("IRIS Backend Started Successfully")
 
     yield
 
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
 
     await mongodb.disconnect()
 
-    print("🛑 IRIS Backend Stopped")
+    print("IRIS Backend Stopped")
 
 
 app = FastAPI(
@@ -65,4 +65,8 @@ async def home():
     }
 
 
-app.include_router(router)
+# ==========================================
+# Register all API routes
+# ==========================================
+
+app.include_router(api_router)

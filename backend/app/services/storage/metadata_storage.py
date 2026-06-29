@@ -22,8 +22,13 @@ class MetadataStorageService:
     Service responsible for image metadata storage.
     """
 
-    def __init__(self) -> None:
-        self.collection = get_database()["images"]
+    @property
+    def collection(self):
+        """
+        Return the images collection.
+        """
+
+        return get_database()["images"]
 
     async def save_metadata(
         self,

@@ -36,7 +36,7 @@ class MongoDB:
 
         self.database = self.client[settings.DATABASE_NAME]
 
-        print("✅ Connected to MongoDB Atlas")
+        print("Connected to MongoDB Atlas")
 
     async def disconnect(self) -> None:
         """
@@ -49,7 +49,7 @@ class MongoDB:
             self.client = None
             self.database = None
 
-            print("❌ MongoDB Connection Closed")
+            print("MongoDB Connection Closed")
 
 
 mongodb = MongoDB()

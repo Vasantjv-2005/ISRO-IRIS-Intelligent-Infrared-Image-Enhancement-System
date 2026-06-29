@@ -51,4 +51,4 @@ async def create_indexes() -> None:
         name="idx_session_id"
     )
 
-    print("✅ MongoDB indexes created successfully.")
+    print("MongoDB indexes created successfully.")

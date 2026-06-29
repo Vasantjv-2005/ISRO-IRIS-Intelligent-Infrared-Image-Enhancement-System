@@ -53,10 +53,18 @@ class Settings(BaseSettings):
     DATABASE_NAME: str = Field(...)
 
     # =====================================================
-    # Gemini
+    # Gemini AI
     # =====================================================
 
     GEMINI_API_KEY: str = Field(...)
+
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    # =====================================================
+    # Hugging Face
+    # =====================================================
+
+    HUGGINGFACE_MODEL: str = "AIDC-AI/Ours_EnhanceAndColorization"
 
     # =====================================================
     # Upload Settings
@@ -69,21 +77,61 @@ class Settings(BaseSettings):
         "image/jpeg",
         "image/jpg",
         "image/tiff",
+        "image/tif",
     ]
 
     # =====================================================
-    # Image Storage
+    # Storage
     # =====================================================
 
     UPLOAD_FOLDER: str = "uploads/raw"
 
-    OUTPUT_FOLDER: str = "outputs"
+    PREPROCESSED_FOLDER: str = "uploads/preprocessed"
+
+    ENHANCED_FOLDER: str = "uploads/enhanced"
+
+    COLORIZED_FOLDER: str = "uploads/colorized"
+
+    DETECTION_FOLDER: str = "uploads/detected"
+
+    REPORT_FOLDER: str = "uploads/reports"
+
+    TEMP_FOLDER: str = "uploads/temp"
 
     # =====================================================
     # AI Models
     # =====================================================
 
     YOLO_MODEL_PATH: str = "weights/yolov8.pt"
+
+    # =====================================================
+    # Logging
+    # =====================================================
+
+    LOG_LEVEL: str = "INFO"
+
+    LOG_FILE: str = "logs/iris.log"
+
+    # =====================================================
+    # CORS
+    # =====================================================
+
+    ALLOWED_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+    ALLOW_CREDENTIALS: bool = True
+
+    ALLOW_METHODS: list[str] = [
+        "*",
+    ]
+
+    ALLOW_HEADERS: list[str] = [
+        "*",
+    ]
 
     # =====================================================
     # Environment Configuration

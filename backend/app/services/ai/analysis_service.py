@@ -1,153 +1,119 @@
 """
-AI Enhancement Service
+AI Analysis Service
 
-Enhances infrared images using classical image enhancement
-techniques. This service is designed so that a deep-learning
-model can be integrated later without changing the API.
+Uses Google Gemini to analyze infrared images
+and detected objects.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import Any
 
-import cv2
-import numpy as np
+import google.generativeai as genai
 
-from app.middleware.error_handler import ImageProcessingException
+from app.core.settings import settings
+from app.middleware.error_handler import AIModelException
 
 
-class EnhancementService:
+class AnalysisService:
     """
-    Service responsible for infrared image enhancement.
+    Service responsible for scene analysis using Gemini.
     """
 
-    def enhance(
-        self,
-        input_path: str,
-        output_path: str,
-        gamma: float = 1.2,
-    ) -> str:
+    def __init__(self) -> None:
+        self.model = None
+        self._initialize()
+
+    def _initialize(self) -> None:
         """
-        Enhance an infrared image.
+        Initialize the Gemini model.
+        """
+
+        try:
+            genai.configure(
+                api_key=settings.GEMINI_API_KEY,
+            )
+
+            self.model = genai.GenerativeModel(
+                "gemini-2.5-flash"
+            )
+
+        except Exception as exc:
+            raise AIModelException(
+                f"Failed to initialize Gemini: {exc}"
+            )
+
+    def analyze(
+        self,
+        detected_objects: list[dict[str, Any]],
+        image_name: str,
+    ) -> dict[str, Any]:
+        """
+        Analyze detected objects using Gemini.
 
         Args:
-            input_path: Path of the input image.
-            output_path: Path where enhanced image is saved.
-            gamma: Gamma correction factor.
+            detected_objects:
+                Objects detected by YOLO.
+
+            image_name:
+                Image filename.
 
         Returns:
-            Path to enhanced image.
+            AI analysis.
         """
 
-        input_file = Path(input_path)
+        try:
 
-        if not input_file.exists():
-            raise ImageProcessingException(
-                "Input image does not exist."
+            if not detected_objects:
+                prompt = f"""
+                Analyze an infrared image named
+                '{image_name}'.
+
+                No objects were detected.
+
+                Explain what could be present,
+                possible environmental conditions,
+                and limitations.
+                """
+
+            else:
+
+                object_names = ", ".join(
+                    item["class_name"]
+                    for item in detected_objects
+                )
+
+                prompt = f"""
+                Analyze the infrared image
+                '{image_name}'.
+
+                Detected objects:
+
+                {object_names}
+
+                Provide:
+
+                1. Scene summary
+                2. Important observations
+                3. Potential risks
+                4. Recommended actions
+                5. Confidence in interpretation
+                """
+
+            response = self.model.generate_content(
+                prompt
             )
 
-        image = cv2.imread(str(input_file))
+            return {
+                "success": True,
+                "image": image_name,
+                "analysis": response.text,
+            }
 
-        if image is None:
-            raise ImageProcessingException(
-                "Unable to read input image."
+        except Exception as exc:
+            raise AIModelException(
+                f"Gemini analysis failed: {exc}"
             )
 
-        enhanced = self.enhance_array(
-            image=image,
-            gamma=gamma,
-        )
 
-        output_file = Path(output_path)
-
-        output_file.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        success = cv2.imwrite(
-            str(output_file),
-            enhanced,
-        )
-
-        if not success:
-            raise ImageProcessingException(
-                "Failed to save enhanced image."
-            )
-
-        return str(output_file)
-
-    def enhance_array(
-        self,
-        image: np.ndarray,
-        gamma: float = 1.2,
-    ) -> np.ndarray:
-        """
-        Enhance an image already loaded into memory.
-
-        Args:
-            image: NumPy image.
-            gamma: Gamma correction value.
-
-        Returns:
-            Enhanced image.
-        """
-
-        if image is None:
-            raise ImageProcessingException(
-                "Invalid image supplied."
-            )
-
-        # ----------------------------------------
-        # Gamma Correction
-        # ----------------------------------------
-
-        inverse_gamma = 1.0 / gamma
-
-        table = np.array(
-            [
-                ((i / 255.0) ** inverse_gamma) * 255
-                for i in np.arange(256)
-            ]
-        ).astype("uint8")
-
-        gamma_corrected = cv2.LUT(
-            image,
-            table,
-        )
-
-        # ----------------------------------------
-        # CLAHE Enhancement
-        # ----------------------------------------
-
-        lab = cv2.cvtColor(
-            gamma_corrected,
-            cv2.COLOR_BGR2LAB,
-        )
-
-        l_channel, a_channel, b_channel = cv2.split(lab)
-
-        clahe = cv2.createCLAHE(
-            clipLimit=2.0,
-            tileGridSize=(8, 8),
-        )
-
-        enhanced_l = clahe.apply(l_channel)
-
-        merged = cv2.merge(
-            (
-                enhanced_l,
-                a_channel,
-                b_channel,
-            )
-        )
-
-        enhanced = cv2.cvtColor(
-            merged,
-            cv2.COLOR_LAB2BGR,
-        )
-
-        return enhanced
-
-
-enhancement_service = EnhancementService()
+analysis_service = AnalysisService()

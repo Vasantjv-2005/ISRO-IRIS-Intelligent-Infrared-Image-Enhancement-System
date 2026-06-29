@@ -1,8 +1,8 @@
 """
-Metadata Storage Service
+Upload Storage Service
 
-Handles storing, retrieving, updating, and deleting
-image metadata in MongoDB.
+Handles storing and retrieving upload records
+from the MongoDB uploads collection.
 """
 
 from __future__ import annotations
@@ -17,27 +17,32 @@ from app.database.mongodb import get_database
 from app.middleware.error_handler import DatabaseException
 
 
-class MetadataStorageService:
+class UploadStorageService:
     """
-    Service responsible for image metadata storage.
+    Service responsible for upload document storage.
     """
 
-    def __init__(self) -> None:
-        self.collection = get_database()["images"]
+    @property
+    def collection(self):
+        """
+        Return the uploads collection.
+        """
 
-    async def save_metadata(
+        return get_database()["uploads"]
+
+    async def create_upload(
         self,
-        metadata: dict[str, Any],
+        upload_data: dict[str, Any],
     ) -> str:
         """
-        Save image metadata.
+        Create a new upload document.
 
         Returns:
             MongoDB document ID.
         """
 
         try:
-            document = metadata.copy()
+            document = upload_data.copy()
 
             document["created_at"] = datetime.utcnow()
             document["updated_at"] = datetime.utcnow()
@@ -48,21 +53,21 @@ class MetadataStorageService:
 
         except PyMongoError as exc:
             raise DatabaseException(
-                f"Failed to save metadata: {exc}"
+                f"Failed to create upload: {exc}"
             ) from exc
 
-    async def get_metadata(
+    async def get_upload(
         self,
-        metadata_id: str,
+        upload_id: str,
     ) -> dict[str, Any] | None:
         """
-        Retrieve metadata by MongoDB ID.
+        Retrieve upload document by ID.
         """
 
         try:
             document = await self.collection.find_one(
                 {
-                    "_id": ObjectId(metadata_id)
+                    "_id": ObjectId(upload_id)
                 }
             )
 
@@ -73,28 +78,28 @@ class MetadataStorageService:
 
         except PyMongoError as exc:
             raise DatabaseException(
-                f"Failed to retrieve metadata: {exc}"
+                f"Failed to retrieve upload: {exc}"
             ) from exc
 
-    async def update_metadata(
+    async def update_upload(
         self,
-        metadata_id: str,
+        upload_id: str,
         updated_data: dict[str, Any],
     ) -> bool:
         """
-        Update metadata.
+        Update upload document.
         """
 
         try:
-            updated_data = updated_data.copy()
-            updated_data["updated_at"] = datetime.utcnow()
+            document = updated_data.copy()
+            document["updated_at"] = datetime.utcnow()
 
             result = await self.collection.update_one(
                 {
-                    "_id": ObjectId(metadata_id)
+                    "_id": ObjectId(upload_id)
                 },
                 {
-                    "$set": updated_data
+                    "$set": document
                 },
             )
 
@@ -102,21 +107,21 @@ class MetadataStorageService:
 
         except PyMongoError as exc:
             raise DatabaseException(
-                f"Failed to update metadata: {exc}"
+                f"Failed to update upload: {exc}"
             ) from exc
 
-    async def delete_metadata(
+    async def delete_upload(
         self,
-        metadata_id: str,
+        upload_id: str,
     ) -> bool:
         """
-        Delete metadata.
+        Delete upload document.
         """
 
         try:
             result = await self.collection.delete_one(
                 {
-                    "_id": ObjectId(metadata_id)
+                    "_id": ObjectId(upload_id)
                 }
             )
 
@@ -124,21 +129,21 @@ class MetadataStorageService:
 
         except PyMongoError as exc:
             raise DatabaseException(
-                f"Failed to delete metadata: {exc}"
+                f"Failed to delete upload: {exc}"
             ) from exc
 
-    async def get_by_upload_id(
+    async def get_by_filename(
         self,
-        upload_id: str,
+        filename: str,
     ) -> dict[str, Any] | None:
         """
-        Retrieve metadata using upload ID.
+        Retrieve upload document by stored filename.
         """
 
         try:
             document = await self.collection.find_one(
                 {
-                    "upload_id": upload_id
+                    "filename": filename
                 }
             )
 
@@ -149,8 +154,8 @@ class MetadataStorageService:
 
         except PyMongoError as exc:
             raise DatabaseException(
-                f"Failed to retrieve metadata: {exc}"
+                f"Failed to retrieve upload: {exc}"
             ) from exc
 
 
-metadata_storage = MetadataStorageService()
+upload_storage = UploadStorageService()

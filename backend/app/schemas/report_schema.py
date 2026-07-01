@@ -1,104 +1,58 @@
 """
 Report Schemas
 
-Request and response schemas for AI report generation.
+Request and response schemas for PDF report generation.
 """
-
-from datetime import datetime
-from enum import Enum
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-
-class ReportStatus(str, Enum):
-    """
-    Report generation status.
-    """
-
-    PENDING = "pending"
-    GENERATING = "generating"
-    COMPLETED = "completed"
-    FAILED = "failed"
+from app.schemas.detection_schema import DetectionObjectSchema
 
 
 class ReportRequestSchema(BaseModel):
     """
-    Request schema for report generation.
+    Request for generating a PDF report.
     """
 
-    upload_id: str = Field(
+    image_name: str = Field(
         ...,
-        description="Unique upload ID"
+        description="Original image filename.",
+    )
+
+    original_image_path: str = Field(
+        ...,
+        description="Path to the original uploaded image.",
+    )
+
+    processed_image_path: str = Field(
+        ...,
+        description="Path to the processed image.",
+    )
+
+    detected_objects: list[DetectionObjectSchema] = Field(
+        default_factory=list,
+        description="Detected objects.",
+    )
+
+    analysis: str = Field(
+        ...,
+        description="Gemini AI generated analysis.",
     )
 
 
 class ReportResponseSchema(BaseModel):
     """
-    Response schema after report generation.
+    Response after report generation.
     """
 
-    upload_id: str
-
-    report_title: str
-
-    status: ReportStatus
+    success: bool = True
 
     report_path: str
 
-    report_format: str = "pdf"
+    image_name: str
 
-    report_size: int = 0
+    generated_at: str
 
-    generated_by: str = "IRIS AI"
+    total_detected_objects: int
 
-    ai_summary: Optional[str] = None
-
-    total_objects_detected: int = 0
-
-    detected_objects: List[str] = Field(default_factory=list)
-
-    confidence_score: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0
-    )
-
-    processing_time_seconds: float = Field(
-        default=0.0,
-        ge=0.0
-    )
-
-    generated_at: Optional[datetime] = None
-
-
-class ReportDownloadSchema(BaseModel):
-    """
-    Report download response.
-    """
-
-    upload_id: str
-
-    report_path: str
-
-    download_url: str
-
-    file_name: str
-
-
-class ReportStatusResponse(BaseModel):
-    """
-    Report generation status.
-    """
-
-    upload_id: str
-
-    status: ReportStatus
-
-    progress: int = Field(
-        default=0,
-        ge=0,
-        le=100
-    )
-
-    message: str
+    message: str = "Report generated successfully."

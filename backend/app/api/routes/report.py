@@ -1,15 +1,18 @@
 """
 Report Routes
 
-API endpoints for generating PDF reports.
+API endpoints for PDF report generation.
 """
 
-from pathlib import Path
-from typing import Any
+from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 
 from app.middleware.error_handler import ReportGenerationException
+from app.schemas.report_schema import (
+    ReportRequestSchema,
+    ReportResponseSchema,
+)
 from app.services.ai.report_generation_service import (
     report_generation_service,
 )
@@ -22,55 +25,52 @@ router = APIRouter(
 
 @router.post(
     "/generate",
-    summary="Generate AI Report",
+    response_model=ReportResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="Generate PDF Report",
 )
 async def generate_report(
-    image_name: str,
-    detected_objects: list[dict[str, Any]],
-    analysis: str,
-):
+    request: ReportRequestSchema,
+) -> ReportResponseSchema:
     """
-    Generate a PDF report.
+    Generate a PDF report for a processed image.
     """
 
     try:
 
-        reports_directory = Path("reports")
-
-        reports_directory.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        report_path = reports_directory / (
-            f"{Path(image_name).stem}_report.pdf"
-        )
-
-        generated_report = (
+        report_path = (
             report_generation_service.generate_report(
-                report_path=str(report_path),
-                image_name=image_name,
-                detected_objects=detected_objects,
-                analysis=analysis,
+                report_path=f"reports/{request.image_name.split('.')[0]}_report.pdf",
+                image_name=request.image_name,
+                detected_objects=[
+                    detection.model_dump()
+                    for detection in request.detected_objects
+                ],
+                analysis=request.analysis,
             )
         )
 
-        return {
-            "success": True,
-            "message": "Report generated successfully.",
-            "report_path": generated_report,
-        }
+        return ReportResponseSchema(
+            success=True,
+            report_path=report_path,
+            image_name=request.image_name,
+            generated_at=datetime.utcnow().isoformat(),
+            total_detected_objects=len(
+                request.detected_objects
+            ),
+            message="Report generated successfully.",
+        )
 
     except ReportGenerationException as exc:
 
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=exc.message,
         )
 
     except Exception as exc:
 
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )

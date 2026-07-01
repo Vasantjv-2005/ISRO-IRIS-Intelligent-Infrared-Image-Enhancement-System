@@ -1,91 +1,43 @@
 """
 Analysis Schemas
 
-Request and response schemas for AI image analysis.
+Request and response schemas for AI scene analysis.
 """
-
-from datetime import datetime
-from enum import Enum
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-
-class AnalysisStatus(str, Enum):
-    """
-    Analysis processing status.
-    """
-
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class DetectedObjectSchema(BaseModel):
-    """
-    Detected object information.
-    """
-
-    label: str = Field(..., description="Detected object name")
-    confidence: float = Field(..., ge=0.0, le=1.0)
-    bounding_box: List[float] = Field(
-        ...,
-        description="Bounding box [x1, y1, x2, y2]"
-    )
+from app.schemas.detection_schema import DetectionObjectSchema
 
 
 class AnalysisRequestSchema(BaseModel):
     """
-    Request for image analysis.
+    AI analysis request.
     """
 
-    upload_id: str
+    image_name: str = Field(
+        ...,
+        description="Image filename.",
+    )
+
+    detected_objects: list[DetectionObjectSchema] = Field(
+        default_factory=list,
+        description="Objects detected by YOLO.",
+    )
 
 
 class AnalysisResponseSchema(BaseModel):
     """
-    Complete AI analysis response.
+    AI analysis response.
     """
 
-    upload_id: str
+    success: bool = True
 
-    status: AnalysisStatus
+    image: str
 
-    scene_summary: Optional[str] = None
+    analysis: str
 
-    detailed_analysis: Optional[str] = None
+    model: str = "Gemini"
 
-    detected_objects: List[DetectedObjectSchema] = Field(default_factory=list)
+    total_detected_objects: int
 
-    object_count: int = 0
-
-    confidence_score: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0
-    )
-
-    report_generated: bool = False
-
-    report_path: Optional[str] = None
-
-    analyzed_at: Optional[datetime] = None
-
-
-class AnalysisStatusResponse(BaseModel):
-    """
-    Analysis status response.
-    """
-
-    upload_id: str
-
-    status: AnalysisStatus
-
-    progress: int = Field(
-        default=0,
-        ge=0,
-        le=100
-    )
-
-    message: str
+    message: str = "Scene analysis completed successfully."

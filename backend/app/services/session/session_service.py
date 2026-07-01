@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.models.session import (
+from app.models.session_model import (
     SessionModel,
     SessionStatus,
 )

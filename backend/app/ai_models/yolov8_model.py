@@ -6,10 +6,17 @@ Production-ready wrapper around the Ultralytics YOLOv8 model.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
 from ultralytics import YOLO
+
+from app.core.config import YOLO_MODEL_PATH
+from app.ai_models.utils import validate_weights
+from app.middleware.error_handler import WeightsInvalidError
+
+logger = logging.getLogger("iris")
 
 
 class YOLOv8Model:
@@ -19,11 +26,9 @@ class YOLOv8Model:
 
     def __init__(
         self,
-        model_path: str = "weights/yolov8.pt",
+        model_path: str | Path | None = None,
     ) -> None:
-
-        self.model_path = Path(model_path)
-
+        self.model_path = Path(model_path or YOLO_MODEL_PATH)
         self.model: YOLO | None = None
 
     # ---------------------------------------------------------
@@ -34,16 +39,19 @@ class YOLOv8Model:
         """
         Load the YOLO model into memory.
         """
-
         if self.model is not None:
             return
 
-        if not self.model_path.exists():
-            raise FileNotFoundError(
-                f"YOLO model not found: {self.model_path}"
-            )
+        # Validate weights first to ensure it's not missing or a 0-byte placeholder
+        validate_weights(self.model_path)
 
-        self.model = YOLO(str(self.model_path))
+        try:
+            self.model = YOLO(str(self.model_path))
+        except Exception as e:
+            logger.error(f"Failed to load YOLOv8 model from {self.model_path}: {e}")
+            raise WeightsInvalidError(
+                f"YOLO model file is invalid or corrupted: {e}"
+            ) from e
 
     # ---------------------------------------------------------
     # Predict
@@ -59,13 +67,16 @@ class YOLOv8Model:
         """
         Run object detection.
         """
-
         self.load()
 
         assert self.model is not None
 
+        image = Path(image_path)
+        if not image.exists():
+            raise FileNotFoundError(f"Image not found: {image_path}")
+
         results = self.model.predict(
-            source=image_path,
+            source=str(image),
             conf=confidence,
             save=save,
             project=output_directory if save else None,
@@ -76,13 +87,9 @@ class YOLOv8Model:
         detections: list[dict[str, Any]] = []
 
         for result in results:
-
             names = result.names
-
             for box in result.boxes:
-
                 coords = box.xyxy[0].tolist()
-
                 detections.append(
                     {
                         "class_id": int(box.cls.item()),
@@ -107,7 +114,6 @@ class YOLOv8Model:
         """
         Return model metadata.
         """
-
         self.load()
 
         return {
@@ -123,7 +129,6 @@ class YOLOv8Model:
         """
         Release model from memory.
         """
-
         self.model = None
 
 

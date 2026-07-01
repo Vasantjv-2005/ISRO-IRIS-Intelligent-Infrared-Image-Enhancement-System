@@ -1,17 +1,15 @@
 """
 AI Detection Service
 
-Performs object detection on infrared images using YOLOv8.
+Performs object detection on infrared images using YOLOv8,
+delegating loading and predictions to the unified YOLOv8Model wrapper.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-from ultralytics import YOLO
-
-from app.core.settings import settings
+from app.ai_models.yolov8_model import yolov8_model
 from app.middleware.error_handler import ImageProcessingException
 
 
@@ -20,25 +18,16 @@ class DetectionService:
     Service responsible for object detection.
     """
 
-    def __init__(self) -> None:
-        self.model: YOLO | None = None
-
     def load_model(self) -> None:
         """
         Load the YOLO model only once.
         """
-
-        if self.model is not None:
-            return
-
-        model_path = Path(settings.YOLO_MODEL_PATH)
-
-        if not model_path.exists():
+        try:
+            yolov8_model.load()
+        except Exception as exc:
             raise ImageProcessingException(
-                f"YOLO model not found: {model_path}"
-            )
-
-        self.model = YOLO(str(model_path))
+                f"Failed to load detection model: {exc}"
+            ) from exc
 
     def detect(
         self,
@@ -62,53 +51,26 @@ class DetectionService:
         Returns:
             Detection results.
         """
-
-        self.load_model()
-
-        image = Path(image_path)
-
-        if not image.exists():
-            raise ImageProcessingException(
-                "Input image not found."
+        try:
+            # Let yolov8_model handle prediction and coordinates format
+            detections = yolov8_model.predict(
+                image_path=image_path,
+                confidence=confidence,
+                save=True,
+                output_directory=output_directory,
             )
 
-        results = self.model.predict(
-            source=str(image),
-            conf=confidence,
-            save=True,
-            project=output_directory,
-            name="detections",
-            exist_ok=True,
-            verbose=False,
-        )
-
-        detections: list[dict[str, Any]] = []
-
-        for result in results:
-
-            for box in result.boxes:
-
-                detections.append(
-                    {
-                        "class_id": int(box.cls[0]),
-                        "class_name": self.model.names[
-                            int(box.cls[0])
-                        ],
-                        "confidence": float(box.conf[0]),
-                        "bbox": [
-                            float(value)
-                            for value in box.xyxy[0]
-                        ],
-                    }
-                )
-
-        return {
-            "success": True,
-            "image_path": image_path,
-            "output_directory": output_directory,
-            "total_objects": len(detections),
-            "detections": detections,
-        }
+            return {
+                "success": True,
+                "image_path": image_path,
+                "output_directory": output_directory,
+                "total_objects": len(detections),
+                "detections": detections,
+            }
+        except Exception as exc:
+            raise ImageProcessingException(
+                f"Detection execution failed: {exc}"
+            ) from exc
 
 
 detection_service = DetectionService()

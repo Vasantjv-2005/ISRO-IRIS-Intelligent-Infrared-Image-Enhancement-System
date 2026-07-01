@@ -187,3 +187,39 @@ class ExternalServiceException(IRISException):
             status_code=503,
             error_code="EXTERNAL_SERVICE_ERROR",
         )
+
+
+class WeightsException(AIModelException):
+    """
+    Base exception for all weight-related errors.
+    """
+
+    def __init__(self, message: str = "Weights error."):
+        super().__init__(
+            message=message,
+        )
+        self.error_code = "WEIGHTS_ERROR"
+
+
+class WeightsNotFoundError(WeightsException):
+    """
+    Raised when weight files do not exist at the specified path.
+    """
+
+    def __init__(self, message: str = "Weight files not found."):
+        super().__init__(
+            message=message,
+        )
+        self.error_code = "WEIGHTS_NOT_FOUND"
+
+
+class WeightsInvalidError(WeightsException):
+    """
+    Raised when weight files are present but invalid (e.g., empty placeholders).
+    """
+
+    def __init__(self, message: str = "Weight files are invalid."):
+        super().__init__(
+            message=message,
+        )
+        self.error_code = "WEIGHTS_INVALID"

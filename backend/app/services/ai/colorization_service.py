@@ -1,19 +1,16 @@
 """
 AI Colorization Service
 
-Provides infrared image colorization.
-
-This implementation uses OpenCV color mapping and is designed
-to be easily replaced by a deep-learning colorization model.
+Provides infrared image colorization by delegating to the unified
+ColorizationModel wrapper, supporting both OpenCV and Deep Learning.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import cv2
 import numpy as np
 
+from app.ai_models.colorization_model import colorization_model
 from app.middleware.error_handler import ImageProcessingException
 
 
@@ -39,47 +36,16 @@ class ColorizationService:
         Returns:
             Output image path.
         """
-
-        input_file = Path(input_path)
-
-        if not input_file.exists():
-            raise ImageProcessingException(
-                "Input image does not exist."
+        try:
+            return colorization_model.colorize(
+                input_path=input_path,
+                output_path=output_path,
+                color_map=color_map,
             )
-
-        image = cv2.imread(
-            str(input_file),
-            cv2.IMREAD_GRAYSCALE,
-        )
-
-        if image is None:
+        except Exception as exc:
             raise ImageProcessingException(
-                "Unable to read input image."
-            )
-
-        colorized = self.colorize_array(
-            image=image,
-            color_map=color_map,
-        )
-
-        output_file = Path(output_path)
-
-        output_file.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        success = cv2.imwrite(
-            str(output_file),
-            colorized,
-        )
-
-        if not success:
-            raise ImageProcessingException(
-                "Failed to save colorized image."
-            )
-
-        return str(output_file)
+                f"Failed to colorize image: {exc}"
+            ) from exc
 
     def colorize_array(
         self,
@@ -96,32 +62,15 @@ class ColorizationService:
         Returns:
             Colorized image.
         """
-
-        if image is None:
+        try:
+            return colorization_model.colorize_array(
+                image=image,
+                color_map=color_map,
+            )
+        except Exception as exc:
             raise ImageProcessingException(
-                "Invalid image supplied."
-            )
-
-        if len(image.shape) == 3:
-            image = cv2.cvtColor(
-                image,
-                cv2.COLOR_BGR2GRAY,
-            )
-
-        normalized = cv2.normalize(
-            image,
-            None,
-            0,
-            255,
-            cv2.NORM_MINMAX,
-        )
-
-        colorized = cv2.applyColorMap(
-            normalized,
-            color_map,
-        )
-
-        return colorized
+                f"Failed to colorize image array: {exc}"
+            ) from exc
 
 
 colorization_service = ColorizationService()

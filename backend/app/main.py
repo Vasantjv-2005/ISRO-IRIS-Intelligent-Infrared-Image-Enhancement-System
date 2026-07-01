@@ -11,6 +11,7 @@ from app.core.config import (
     PROJECT_NAME,
     PROJECT_VERSION,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.router import api_router
 from app.database.indexes import create_indexes
 from app.database.mongodb import mongodb
@@ -48,6 +49,15 @@ app = FastAPI(
     description=PROJECT_DESCRIPTION,
     version=PROJECT_VERSION,
     lifespan=lifespan,
+)
+
+# CORS Middleware Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows requests from any frontend port/origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

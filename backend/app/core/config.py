@@ -103,6 +103,14 @@ WEIGHTS_FOLDER = BASE_DIR / "weights"
 
 YOLO_MODEL_PATH = BASE_DIR / settings.YOLO_MODEL_PATH
 
+COLORIZATION_MODEL_PATH = BASE_DIR / settings.COLORIZATION_MODEL_PATH
+
+ENHANCEMENT_MODEL_PATH = BASE_DIR / settings.ENHANCEMENT_MODEL_PATH
+
+COLORIZATION_BACKEND = settings.COLORIZATION_BACKEND
+
+ENHANCEMENT_BACKEND = settings.ENHANCEMENT_BACKEND
+
 # =====================================================
 # Create Required Directories
 # =====================================================

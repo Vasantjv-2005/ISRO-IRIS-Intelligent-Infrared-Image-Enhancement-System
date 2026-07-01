@@ -102,7 +102,15 @@ class Settings(BaseSettings):
     # AI Models
     # =====================================================
 
-    YOLO_MODEL_PATH: str = "weights/yolov8.pt"
+    YOLO_MODEL_PATH: str = "weights/detection/yolov8.pt"
+
+    COLORIZATION_MODEL_PATH: str = "weights/colorization/colorization_model.pth"
+
+    ENHANCEMENT_MODEL_PATH: str = "weights/enhancement/enhancement_model.pth"
+
+    COLORIZATION_BACKEND: str = "auto"
+
+    ENHANCEMENT_BACKEND: str = "auto"
 
     # =====================================================
     # Logging

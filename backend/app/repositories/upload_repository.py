@@ -1,0 +1,333 @@
+"""
+Upload Repository
+
+Handles all database operations related to uploaded images.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import List
+
+from pymongo import ReturnDocument
+
+from app.database.mongodb import get_database
+from app.models.upload_model import (
+    ProcessingStatus,
+    UploadModel,
+)
+from app.utils.logger import Logger
+
+logger = Logger.get_logger(__name__)
+
+
+class UploadRepository:
+    """
+    Repository responsible for Upload collection.
+    """
+
+    COLLECTION = "uploads"
+
+    @property
+    def collection(self):
+        """
+        Return MongoDB uploads collection.
+        """
+
+        db = get_database()
+
+        return db[self.COLLECTION]
+
+    # =====================================================
+    # Create
+    # =====================================================
+
+    async def create(
+        self,
+        upload: UploadModel,
+    ) -> UploadModel:
+        """
+        Insert a new upload document.
+        """
+
+        document = upload.model_dump()
+
+        await self.collection.insert_one(document)
+
+        logger.info(
+            "Upload created: %s",
+            upload.filename,
+        )
+
+        return upload
+
+    # =====================================================
+    # Find by Upload ID
+    # =====================================================
+
+    async def get_by_upload_id(
+        self,
+        upload_id: str,
+    ) -> UploadModel | None:
+        """
+        Find upload by upload_id.
+        """
+
+        document = await self.collection.find_one(
+            {
+                "upload_id": upload_id
+            }
+        )
+
+        if document is None:
+            return None
+
+        document.pop("_id", None)
+
+        return UploadModel(**document)
+
+    # =====================================================
+    # Find by Filename
+    # =====================================================
+
+    async def get_by_filename(
+        self,
+        filename: str,
+    ) -> UploadModel | None:
+        """
+        Find upload by filename.
+        """
+
+        document = await self.collection.find_one(
+            {
+                "filename": filename
+            }
+        )
+
+        if document is None:
+            return None
+
+        document.pop("_id", None)
+
+        return UploadModel(**document)
+
+    # =====================================================
+    # Update Status
+    # =====================================================
+
+    async def update_status(
+        self,
+        upload_id: str,
+        status: ProcessingStatus,
+    ) -> bool:
+        """
+        Update processing status.
+        """
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": {
+                    "status": status,
+                    "updated_at": datetime.utcnow(),
+                }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Update Flags
+    # =====================================================
+
+    async def update_processing_flags(
+        self,
+        upload_id: str,
+        *,
+        enhancement: bool | None = None,
+        colorization: bool | None = None,
+        detection: bool | None = None,
+        analysis: bool | None = None,
+        report: bool | None = None,
+    ) -> bool:
+        """
+        Update processing completion flags.
+        """
+
+        updates = {
+            "updated_at": datetime.utcnow(),
+        }
+
+        if enhancement is not None:
+            updates["enhancement_completed"] = enhancement
+
+        if colorization is not None:
+            updates["colorization_completed"] = colorization
+
+        if detection is not None:
+            updates["detection_completed"] = detection
+
+        if analysis is not None:
+            updates["analysis_completed"] = analysis
+
+        if report is not None:
+            updates["report_generated"] = report
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": updates
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Save Analysis
+    # =====================================================
+
+    async def save_analysis(
+        self,
+        upload_id: str,
+        objects_detected: list,
+        scene_summary: str,
+    ) -> bool:
+        """
+        Save AI analysis.
+        """
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": {
+                    "objects_detected": objects_detected,
+                    "scene_summary": scene_summary,
+                    "updated_at": datetime.utcnow(),
+                }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Save Report
+    # =====================================================
+
+    async def save_report_path(
+        self,
+        upload_id: str,
+        report_path: str,
+    ) -> bool:
+        """
+        Save generated report path.
+        """
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": {
+                    "report_path": report_path,
+                    "report_generated": True,
+                    "updated_at": datetime.utcnow(),
+                }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Delete
+    # =====================================================
+
+    async def delete(
+        self,
+        upload_id: str,
+    ) -> bool:
+        """
+        Delete upload.
+        """
+
+        result = await self.collection.delete_one(
+            {
+                "upload_id": upload_id
+            }
+        )
+
+        return result.deleted_count > 0
+
+    # =====================================================
+    # List Uploads
+    # =====================================================
+
+    async def list_uploads(
+        self,
+        limit: int = 100,
+    ) -> List[UploadModel]:
+        """
+        Return latest uploads.
+        """
+
+        cursor = (
+            self.collection
+            .find()
+            .sort(
+                "uploaded_at",
+                -1,
+            )
+            .limit(limit)
+        )
+
+        uploads: List[UploadModel] = []
+
+        async for document in cursor:
+
+            document.pop("_id", None)
+
+            uploads.append(
+                UploadModel(**document)
+            )
+
+        return uploads
+
+    # =====================================================
+    # Count
+    # =====================================================
+
+    async def count(self) -> int:
+        """
+        Return total uploads.
+        """
+
+        return await self.collection.count_documents({})
+
+    # =====================================================
+    # Exists
+    # =====================================================
+
+    async def exists(
+        self,
+        upload_id: str,
+    ) -> bool:
+        """
+        Check if upload exists.
+        """
+
+        count = await self.collection.count_documents(
+            {
+                "upload_id": upload_id
+            },
+            limit=1,
+        )
+
+        return count > 0
+
+
+upload_repository = UploadRepository()

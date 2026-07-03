@@ -1,19 +1,29 @@
 """
 Upload Model
 
-This model defines the structure of an uploaded infrared image
-stored in MongoDB.
+Defines the MongoDB document structure for uploaded
+infrared images.
 """
 
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
 
 
+def utc_now() -> datetime:
+    """
+    Return the current UTC datetime.
+    """
+
+    return datetime.now(timezone.utc)
+
+
 class ProcessingStatus(str, Enum):
     """
-    Status of the uploaded image.
+    Processing status of an uploaded image.
     """
 
     UPLOADED = "uploaded"
@@ -28,31 +38,75 @@ class ProcessingStatus(str, Enum):
 
 class UploadModel(BaseModel):
     """
-    Upload document stored in MongoDB.
+    MongoDB Upload Document.
     """
 
+    # =====================================================
+    # Identification
+    # =====================================================
+
+    upload_id: str
+
+    # =====================================================
+    # File Information
+    # =====================================================
+
     filename: str
+
     original_filename: str
+
     file_path: str
+
     file_size: int
+
     file_type: str
+
+    mime_type: str
+
+    # =====================================================
+    # Processing
+    # =====================================================
 
     status: ProcessingStatus = ProcessingStatus.UPLOADED
 
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = Field(default_factory=utc_now)
 
     enhancement_completed: bool = False
+
     colorization_completed: bool = False
+
     detection_completed: bool = False
+
     analysis_completed: bool = False
+
     report_generated: bool = False
+
+    # =====================================================
+    # AI Results
+    # =====================================================
 
     report_path: str | None = None
 
-    objects_detected: list = Field(default_factory=list)
+    objects_detected: list[dict] = Field(
+        default_factory=list
+    )
 
     scene_summary: str | None = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    # =====================================================
+    # Audit Fields
+    # =====================================================
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=utc_now
+    )
+
+    updated_at: datetime = Field(
+        default_factory=utc_now
+    )
+
+    model_config = {
+        "populate_by_name": True,
+        "extra": "ignore",
+        "validate_assignment": True,
+    }

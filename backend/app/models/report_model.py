@@ -5,10 +5,21 @@ This model stores the generated report details
 for an analyzed infrared image.
 """
 
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from enum import Enum
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+
+def utc_now() -> datetime:
+    """
+    Return the current UTC datetime.
+    """
+
+    return datetime.now(timezone.utc)
 
 
 class ReportStatus(str, Enum):
@@ -26,6 +37,8 @@ class ReportModel(BaseModel):
     """
     Report document stored in MongoDB.
     """
+
+    report_id: str = Field(default_factory=lambda: str(uuid4()))
 
     upload_id: str
 
@@ -55,6 +68,12 @@ class ReportModel(BaseModel):
 
     generated_at: datetime | None = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    model_config = {
+        "populate_by_name": True,
+        "extra": "ignore",
+        "validate_assignment": True,
+    }

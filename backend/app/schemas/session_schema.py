@@ -1,124 +1,70 @@
 """
-Image Schemas
+Session Schemas
 
-Request and response schemas for image information.
+Request and response schemas for image processing sessions.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.models.session_model import SessionStatus
 
-class ImageStatus(str, Enum):
+
+class SessionCreateRequest(BaseModel):
     """
-    Image processing status.
-    """
-
-    UPLOADED = "uploaded"
-    PREPROCESSED = "preprocessed"
-    ENHANCED = "enhanced"
-    COLORIZED = "colorized"
-    DETECTED = "detected"
-    ANALYZED = "analyzed"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class ImageMetadataSchema(BaseModel):
-    """
-    Image metadata.
+    Request schema to create a new session.
     """
 
-    width: int = Field(..., gt=0)
-
-    height: int = Field(..., gt=0)
-
-    format: str
-
-    size: int = Field(..., gt=0)
-
-    mime_type: str
+    upload_id: str = Field(..., description="ID of the uploaded image.")
 
 
-class ImageResponseSchema(BaseModel):
+class SessionResponseSchema(BaseModel):
     """
-    Image response schema.
+    Session details response schema.
     """
 
-    image_id: str
-
+    session_id: str
     upload_id: str
-
-    original_filename: str
-
-    stored_filename: str
-
-    original_image_path: str
-
-    processed_image_path: Optional[str] = None
-
-    thumbnail_path: Optional[str] = None
-
-    metadata: ImageMetadataSchema
-
-    status: ImageStatus
-
-    preprocessing_completed: bool = False
-
-    enhancement_completed: bool = False
-
-    colorization_completed: bool = False
-
-    detection_completed: bool = False
-
-    analysis_completed: bool = False
-
-    report_generated: bool = False
-
+    image_id: Optional[str] = None
+    analysis_id: Optional[str] = None
+    report_id: Optional[str] = None
+    comparison_id: Optional[str] = None
+    status: SessionStatus
+    progress: int = Field(default=0, ge=0, le=100)
+    current_stage: str = "Upload"
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    processing_time_seconds: float = 0.0
+    error_message: Optional[str] = None
     created_at: datetime
-
     updated_at: datetime
 
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+    }
 
-class ImageStatusResponse(BaseModel):
+
+class SessionStatusResponse(BaseModel):
     """
-    Image processing status.
+    Session processing status and progress response.
     """
 
-    image_id: str
-
-    status: ImageStatus
-
-    progress: int = Field(
-        default=0,
-        ge=0,
-        le=100
-    )
-
+    session_id: str
+    status: SessionStatus
+    progress: int = Field(default=0, ge=0, le=100)
+    current_stage: str
     message: str
 
 
-class ImageDeleteResponse(BaseModel):
+class SessionListResponse(BaseModel):
     """
-    Image delete response.
-    """
-
-    image_id: str
-
-    deleted: bool
-
-    message: str
-
-
-class ImageDownloadResponse(BaseModel):
-    """
-    Download processed image.
+    Paginated or limited list of sessions.
     """
 
-    image_id: str
-
-    file_name: str
-
-    download_url: str
+    total_sessions: int
+    sessions: list[SessionResponseSchema]

@@ -5,11 +5,22 @@ Stores information about an image processing session.
 Each uploaded image belongs to one processing session.
 """
 
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+
+def utc_now() -> datetime:
+    """
+    Return the current UTC datetime.
+    """
+
+    return datetime.now(timezone.utc)
 
 
 class SessionStatus(str, Enum):
@@ -29,7 +40,7 @@ class SessionModel(BaseModel):
     Session document stored in MongoDB.
     """
 
-    session_id: str
+    session_id: str = Field(default_factory=lambda: str(uuid4()))
 
     upload_id: str
 
@@ -47,7 +58,7 @@ class SessionModel(BaseModel):
 
     current_stage: str = "Upload"
 
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=utc_now)
 
     completed_at: Optional[datetime] = None
 
@@ -55,6 +66,12 @@ class SessionModel(BaseModel):
 
     error_message: Optional[str] = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    model_config = {
+        "populate_by_name": True,
+        "extra": "ignore",
+        "validate_assignment": True,
+    }

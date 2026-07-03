@@ -5,10 +5,21 @@ This model stores the comparison details between
 the original infrared image and the AI-processed image.
 """
 
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from enum import Enum
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+
+def utc_now() -> datetime:
+    """
+    Return the current UTC datetime.
+    """
+
+    return datetime.now(timezone.utc)
 
 
 class ComparisonStatus(str, Enum):
@@ -26,6 +37,8 @@ class ComparisonModel(BaseModel):
     """
     Comparison document stored in MongoDB.
     """
+
+    comparison_id: str = Field(default_factory=lambda: str(uuid4()))
 
     upload_id: str
 
@@ -55,6 +68,12 @@ class ComparisonModel(BaseModel):
 
     similarity_score: float = 0.0
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    model_config = {
+        "populate_by_name": True,
+        "extra": "ignore",
+        "validate_assignment": True,
+    }

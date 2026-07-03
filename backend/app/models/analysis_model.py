@@ -5,10 +5,21 @@ This model represents the AI analysis results generated
 after processing an infrared image.
 """
 
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from enum import Enum
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+
+def utc_now() -> datetime:
+    """
+    Return the current UTC datetime.
+    """
+
+    return datetime.now(timezone.utc)
 
 
 class AnalysisStatus(str, Enum):
@@ -37,7 +48,11 @@ class AnalysisModel(BaseModel):
     Analysis document stored in MongoDB.
     """
 
+    analysis_id: str = Field(default_factory=lambda: str(uuid4()))
+
     upload_id: str
+
+    image_name: str | None = None
 
     status: AnalysisStatus = AnalysisStatus.PENDING
 
@@ -57,6 +72,12 @@ class AnalysisModel(BaseModel):
 
     analyzed_at: datetime | None = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    model_config = {
+        "populate_by_name": True,
+        "extra": "ignore",
+        "validate_assignment": True,
+    }

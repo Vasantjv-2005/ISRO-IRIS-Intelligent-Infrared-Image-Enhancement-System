@@ -1,7 +1,7 @@
 """
-Report Repository
+Image Repository
 
-Handles all database operations related to generated PDF reports.
+Handles database operations related to processed images.
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ from typing import List
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from app.database.mongodb import get_database
-from app.models.report_model import (
-    ReportModel,
-    ReportStatus,
+from app.models.image_model import (
+    ImageModel,
+    ImageStatus,
     utc_now,
 )
 from app.utils.logger import Logger
@@ -21,17 +21,17 @@ from app.utils.logger import Logger
 logger = Logger.get_logger(__name__)
 
 
-class ReportRepository:
+class ImageRepository:
     """
-    Repository responsible for Reports collection.
+    Repository responsible for Images collection.
     """
 
-    COLLECTION = "reports"
+    COLLECTION = "images"
 
     @property
     def collection(self) -> AsyncIOMotorCollection:
         """
-        Return MongoDB reports collection.
+        Return MongoDB images collection.
         """
 
         db = get_database()
@@ -44,38 +44,38 @@ class ReportRepository:
 
     async def create(
         self,
-        report: ReportModel,
-    ) -> ReportModel:
+        image: ImageModel,
+    ) -> ImageModel:
         """
-        Insert a new report document.
+        Insert a new image document.
         """
 
-        document = report.model_dump()
+        document = image.model_dump()
 
         await self.collection.insert_one(document)
 
         logger.info(
-            "Report created: %s",
-            report.report_id,
+            "Image created: %s",
+            image.image_id,
         )
 
-        return report
+        return image
 
     # =====================================================
-    # Find by Report ID
+    # Find by Image ID
     # =====================================================
 
-    async def get_by_report_id(
+    async def get_by_image_id(
         self,
-        report_id: str,
-    ) -> ReportModel | None:
+        image_id: str,
+    ) -> ImageModel | None:
         """
-        Find report by report_id.
+        Find image by image_id.
         """
 
         document = await self.collection.find_one(
             {
-                "report_id": report_id
+                "image_id": image_id
             }
         )
 
@@ -84,7 +84,7 @@ class ReportRepository:
 
         document.pop("_id", None)
 
-        return ReportModel(**document)
+        return ImageModel(**document)
 
     # =====================================================
     # Find by Upload ID
@@ -93,9 +93,9 @@ class ReportRepository:
     async def get_by_upload_id(
         self,
         upload_id: str,
-    ) -> ReportModel | None:
+    ) -> ImageModel | None:
         """
-        Find report by upload_id.
+        Find image by upload_id.
         """
 
         document = await self.collection.find_one(
@@ -109,43 +109,18 @@ class ReportRepository:
 
         document.pop("_id", None)
 
-        return ReportModel(**document)
+        return ImageModel(**document)
 
     # =====================================================
-    # Find by Analysis ID
+    # List Images
     # =====================================================
 
-    async def get_by_analysis_id(
-        self,
-        analysis_id: str,
-    ) -> ReportModel | None:
-        """
-        Find report by analysis_id.
-        """
-
-        document = await self.collection.find_one(
-            {
-                "analysis_id": analysis_id
-            }
-        )
-
-        if document is None:
-            return None
-
-        document.pop("_id", None)
-
-        return ReportModel(**document)
-
-    # =====================================================
-    # List Reports
-    # =====================================================
-
-    async def list_reports(
+    async def list_images(
         self,
         limit: int = 100,
-    ) -> List[ReportModel]:
+    ) -> List[ImageModel]:
         """
-        Return latest reports.
+        Return latest images.
         """
 
         cursor = (
@@ -158,17 +133,17 @@ class ReportRepository:
             .limit(limit)
         )
 
-        reports: List[ReportModel] = []
+        images: List[ImageModel] = []
 
         async for document in cursor:
 
             document.pop("_id", None)
 
-            reports.append(
-                ReportModel(**document)
+            images.append(
+                ImageModel(**document)
             )
 
-        return reports
+        return images
 
     # =====================================================
     # Update Status
@@ -176,101 +151,107 @@ class ReportRepository:
 
     async def update_status(
         self,
-        report_id: str,
-        status: ReportStatus,
+        image_id: str,
+        status: ImageStatus,
     ) -> bool:
         """
         Update processing status.
         """
 
-        updates = {
-            "status": status,
-            "updated_at": utc_now(),
-        }
-
-        if status == ReportStatus.COMPLETED:
-            updates["generated_at"] = utc_now()
-
         result = await self.collection.update_one(
             {
-                "report_id": report_id
+                "image_id": image_id
             },
             {
-                "$set": updates
-            },
-        )
-
-        return result.modified_count > 0
-
-    # =====================================================
-    # Update Report Data
-    # =====================================================
-
-    async def update_report_data(
-        self,
-        report_id: str,
-        *,
-        report_path: str,
-        report_size: int,
-        ai_summary: str | None = None,
-        total_objects_detected: int = 0,
-        detected_objects: list | None = None,
-        confidence_score: float = 0.0,
-    ) -> bool:
-        """
-        Update generated report file details and summary.
-        """
-
-        updates = {
-            "status": ReportStatus.COMPLETED,
-            "report_path": report_path,
-            "report_size": report_size,
-            "total_objects_detected": total_objects_detected,
-            "confidence_score": confidence_score,
-            "generated_at": utc_now(),
-            "updated_at": utc_now(),
-        }
-
-        if ai_summary is not None:
-            updates["ai_summary"] = ai_summary
-
-        if detected_objects is not None:
-            updates["detected_objects"] = detected_objects
-
-        result = await self.collection.update_one(
-            {
-                "report_id": report_id
-            },
-            {
-                "$set": updates
-            },
-        )
-
-        return result.modified_count > 0
-
-    # =====================================================
-    # Increment Download Count
-    # =====================================================
-
-    async def increment_download_count(
-        self,
-        report_id: str,
-    ) -> bool:
-        """
-        Increment the download counter for a report.
-        """
-
-        result = await self.collection.update_one(
-            {
-                "report_id": report_id
-            },
-            {
-                "$inc": {
-                    "download_count": 1
-                },
                 "$set": {
-                    "updated_at": utc_now()
-                },
+                    "status": status,
+                    "updated_at": utc_now(),
+                }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Update Processed Path
+    # =====================================================
+
+    async def update_processed_path(
+        self,
+        image_id: str,
+        processed_image_path: str,
+        thumbnail_path: str | None = None,
+    ) -> bool:
+        """
+        Update file paths for processed image and thumbnail.
+        """
+
+        updates = {
+            "processed_image_path": processed_image_path,
+            "updated_at": utc_now(),
+        }
+
+        if thumbnail_path is not None:
+            updates["thumbnail_path"] = thumbnail_path
+
+        result = await self.collection.update_one(
+            {
+                "image_id": image_id
+            },
+            {
+                "$set": updates
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Update Flags
+    # =====================================================
+
+    async def update_flags(
+        self,
+        image_id: str,
+        *,
+        preprocessing: bool | None = None,
+        enhancement: bool | None = None,
+        colorization: bool | None = None,
+        detection: bool | None = None,
+        analysis: bool | None = None,
+        report: bool | None = None,
+    ) -> bool:
+        """
+        Update processing completion stage flags.
+        """
+
+        updates = {
+            "updated_at": utc_now(),
+        }
+
+        if preprocessing is not None:
+            updates["preprocessing_completed"] = preprocessing
+
+        if enhancement is not None:
+            updates["enhancement_completed"] = enhancement
+
+        if colorization is not None:
+            updates["colorization_completed"] = colorization
+
+        if detection is not None:
+            updates["detection_completed"] = detection
+
+        if analysis is not None:
+            updates["analysis_completed"] = analysis
+
+        if report is not None:
+            updates["report_generated"] = report
+
+        result = await self.collection.update_one(
+            {
+                "image_id": image_id
+            },
+            {
+                "$set": updates
             },
         )
 
@@ -282,15 +263,15 @@ class ReportRepository:
 
     async def delete(
         self,
-        report_id: str,
+        image_id: str,
     ) -> bool:
         """
-        Delete report by report_id.
+        Delete image document.
         """
 
         result = await self.collection.delete_one(
             {
-                "report_id": report_id
+                "image_id": image_id
             }
         )
 
@@ -302,15 +283,15 @@ class ReportRepository:
 
     async def exists(
         self,
-        report_id: str,
+        image_id: str,
     ) -> bool:
         """
-        Check if report exists.
+        Check if image exists.
         """
 
         count = await self.collection.count_documents(
             {
-                "report_id": report_id
+                "image_id": image_id
             },
             limit=1,
         )
@@ -323,7 +304,7 @@ class ReportRepository:
 
     async def count(self) -> int:
         """
-        Return total report documents.
+        Return total image documents.
         """
 
         return await self.collection.count_documents({})
@@ -333,4 +314,4 @@ class ReportRepository:
 # Singleton
 # ==========================================================
 
-report_repository = ReportRepository()
+image_repository = ImageRepository()

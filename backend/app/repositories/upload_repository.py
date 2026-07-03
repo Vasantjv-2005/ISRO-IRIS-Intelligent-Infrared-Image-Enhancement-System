@@ -15,6 +15,7 @@ from app.database.mongodb import get_database
 from app.models.upload_model import (
     ProcessingStatus,
     UploadModel,
+    utc_now,
 )
 from app.utils.logger import Logger
 
@@ -131,7 +132,7 @@ class UploadRepository:
             {
                 "$set": {
                     "status": status,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": utc_now(),
                 }
             },
         )
@@ -157,7 +158,7 @@ class UploadRepository:
         """
 
         updates = {
-            "updated_at": datetime.utcnow(),
+            "updated_at": utc_now(),
         }
 
         if enhancement is not None:
@@ -208,7 +209,7 @@ class UploadRepository:
                 "$set": {
                     "objects_detected": objects_detected,
                     "scene_summary": scene_summary,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": utc_now(),
                 }
             },
         )
@@ -236,7 +237,7 @@ class UploadRepository:
                 "$set": {
                     "report_path": report_path,
                     "report_generated": True,
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": utc_now(),
                 }
             },
         )

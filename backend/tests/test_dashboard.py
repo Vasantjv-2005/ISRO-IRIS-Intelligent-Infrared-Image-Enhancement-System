@@ -5,7 +5,7 @@ Tests for Dashboard and Comparison Services.
 from __future__ import annotations
 
 import unittest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, patch
 
 from app.services.dashboard.dashboard_service import dashboard_service
 
@@ -15,45 +15,45 @@ class TestDashboardService(unittest.IsolatedAsyncioTestCase):
     Tests for DashboardService operations.
     """
 
-    async def test_get_dashboard_success(self) -> None:
+    @patch("app.services.dashboard.dashboard_service.session_repository")
+    @patch("app.services.dashboard.dashboard_service.upload_repository")
+    async def test_get_dashboard_success(
+        self,
+        mock_upload_repo: AsyncMock,
+        mock_session_repo: AsyncMock,
+    ) -> None:
         """
-        Verify get_dashboard aggregates data and returns correct stats.
+        Verify get_dashboard aggregates data from repositories and returns correct stats.
         """
-        mock_db = MagicMock()
-        
-        # Mock database collection calls
-        mock_uploads = AsyncMock()
-        mock_uploads.count_documents.side_effect = [10, 5, 4, 3, 1]  # uploads, processed, reports, analysis, failed
-        
-        # Mock aggregations
-        mock_cursor = MagicMock()
-        mock_cursor.to_list = AsyncMock(return_value=[{"total": 12, "total_size": 20971520}])
-        mock_uploads.aggregate = MagicMock(return_value=mock_cursor)
-
-        mock_sessions = AsyncMock()
-        mock_sessions.count_documents.return_value = 2  # active sessions
-        
-        mock_cursor_time = MagicMock()
-        mock_cursor_time.to_list = AsyncMock(return_value=[{"avg_time": 4.5}])
-        mock_sessions.aggregate = MagicMock(return_value=mock_cursor_time)
-
-        # Mock recent uploads finder
-        mock_recent_cursor = MagicMock()
-        mock_recent_cursor.sort.return_value.limit.return_value = mock_recent_cursor
-        # Define mock async iterator
-        async def mock_async_iter(*args, **kwargs):
-            yield {
-                "upload_id": "upload_1",
-                "filename": "test1.jpg",
-                "status": "completed",
-                "uploaded_at": None,
+        mock_upload_repo.get_upload_statistics = AsyncMock(
+            return_value={
+                "total_uploads": 10,
+                "total_processed_images": 5,
+                "total_reports_generated": 4,
+                "total_completed_analysis": 3,
+                "total_failed_jobs": 1,
+                "total_objects_detected": 12,
+                "total_size_bytes": 20971520,
             }
-        mock_recent_cursor.__aiter__ = mock_async_iter
-        mock_uploads.find = MagicMock(return_value=mock_recent_cursor)
+        )
+        mock_upload_repo.get_recent_uploads = AsyncMock(
+            return_value=[
+                {
+                    "upload_id": "upload_1",
+                    "filename": "test1.jpg",
+                    "status": "completed",
+                    "uploaded_at": "2026-07-04T00:00:00Z",
+                }
+            ]
+        )
+        mock_session_repo.get_session_statistics = AsyncMock(
+            return_value={
+                "active_sessions": 2,
+                "average_processing_time_seconds": 4.5,
+            }
+        )
 
-        mock_db.__getitem__.side_effect = lambda name: mock_uploads if name == "uploads" else mock_sessions
-
-        result = await dashboard_service.get_dashboard(mock_db)
+        result = await dashboard_service.get_dashboard()
 
         self.assertEqual(result["statistics"]["total_uploads"], 10)
         self.assertEqual(result["statistics"]["total_processed_images"], 5)
@@ -63,3 +63,4 @@ class TestDashboardService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["statistics"]["average_processing_time_seconds"], 4.5)
         self.assertEqual(result["statistics"]["storage_used_mb"], 20.0)
         self.assertEqual(len(result["recent_activities"]), 1)
+

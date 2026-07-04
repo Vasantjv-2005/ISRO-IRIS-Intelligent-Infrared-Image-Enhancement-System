@@ -5,43 +5,59 @@ Main application entry point for the IRIS Backend.
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import (
     PROJECT_DESCRIPTION,
     PROJECT_NAME,
     PROJECT_VERSION,
 )
-from fastapi.middleware.cors import CORSMiddleware
 from app.core.router import api_router
+from app.core.settings import settings
 from app.database.indexes import create_indexes
 from app.database.mongodb import mongodb
+from app.middleware.exception_handler import register_exception_handlers
+from app.utils.logger import Logger
+
+logger = Logger.get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Application startup and shutdown.
+    Application startup and shutdown lifecycle manager.
     """
 
     # ---------------------------------------
     # Startup
     # ---------------------------------------
+    logger.info("Initializing IRIS Backend services (v%s)...", PROJECT_VERSION)
+    try:
+        logger.info("Connecting to MongoDB Atlas...")
+        await mongodb.connect()
 
-    await mongodb.connect()
+        logger.info("Creating MongoDB indexes...")
+        await create_indexes()
 
-    await create_indexes()
-
-    print("🚀 IRIS Backend Started Successfully")
+        logger.info("🚀 IRIS Backend Started Successfully")
+        print("🚀 IRIS Backend Started Successfully")
+    except Exception as exc:
+        logger.error("❌ Fatal error during application startup: %s", exc, exc_info=True)
+        print(f"❌ Startup Error: {exc}")
+        raise
 
     yield
 
     # ---------------------------------------
     # Shutdown
     # ---------------------------------------
-
-    await mongodb.disconnect()
-
-    print("🛑 IRIS Backend Stopped")
+    logger.info("Shutting down IRIS Backend services...")
+    try:
+        await mongodb.disconnect()
+        logger.info("🛑 IRIS Backend Stopped Cleanly")
+        print("🛑 IRIS Backend Stopped")
+    except Exception as exc:
+        logger.error("❌ Error during MongoDB disconnection: %s", exc, exc_info=True)
 
 
 app = FastAPI(
@@ -51,13 +67,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Register exception handlers
+register_exception_handlers(app)
+
 # CORS Middleware Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows requests from any frontend port/origin
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS if not settings.DEBUG else ["*"],
+    allow_credentials=settings.ALLOW_CREDENTIALS if not settings.DEBUG else True,
+    allow_methods=settings.ALLOW_METHODS,
+    allow_headers=settings.ALLOW_HEADERS,
 )
 
 

@@ -340,6 +340,38 @@ class SessionRepository:
 
         return await self.collection.count_documents({})
 
+    # =====================================================
+    # Dashboard Statistics
+    # =====================================================
+
+    async def get_session_statistics(self) -> dict:
+        """
+        Compute session metrics for dashboard statistics.
+        """
+
+        active_sessions = await self.collection.count_documents(
+            {
+                "status": {
+                    "$in": [
+                        SessionStatus.CREATED,
+                        SessionStatus.RUNNING,
+                    ]
+                }
+            }
+        )
+
+        pipeline_time = [
+            {"$group": {"_id": None, "avg_time": {"$avg": "$processing_time_seconds"}}}
+        ]
+        cursor_time = self.collection.aggregate(pipeline_time)
+        res_time = await cursor_time.to_list(1)
+        avg_time = round(res_time[0]["avg_time"] or 0.0, 2) if res_time else 0.0
+
+        return {
+            "active_sessions": active_sessions,
+            "average_processing_time_seconds": avg_time,
+        }
+
 
 # ==========================================================
 # Singleton

@@ -51,4 +51,43 @@ async def create_indexes() -> None:
         name="idx_session_id"
     )
 
+    # ==========================
+    # Users Collection
+    # ==========================
+    await db.users.create_index(
+        [("email", ASCENDING)],
+        unique=True,
+        name="idx_user_email"
+    )
+    await db.users.create_index(
+        [("user_id", ASCENDING)],
+        unique=True,
+        name="idx_user_id"
+    )
+
+    # ==========================
+    # Comparisons Collection
+    # ==========================
+    await db.comparisons.create_index(
+        [("upload_id", ASCENDING)],
+        unique=True,
+        name="idx_comparison_upload_id"
+    )
+
+    # ==========================
+    # Analyses Collection
+    # ==========================
+    await db.analyses.create_index(
+        [("upload_id", ASCENDING)],
+        name="idx_analysis_upload_id"
+    )
+
+    # ==========================
+    # Images Collection
+    # ==========================
+    await db.images.create_index(
+        [("upload_id", ASCENDING)],
+        name="idx_image_upload_id"
+    )
+
     print("MongoDB indexes created successfully.")

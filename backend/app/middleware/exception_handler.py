@@ -4,9 +4,10 @@ Global Exception Handler
 Registers all application exception handlers.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -30,7 +31,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "message": exc.message,
                 "error": exc.error_code,
                 "path": request.url.path,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -45,9 +46,9 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "success": False,
                 "message": "Validation failed.",
                 "error": "VALIDATION_ERROR",
-                "details": exc.errors(),
+                "details": jsonable_encoder(exc.errors()),
                 "path": request.url.path,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -63,7 +64,23 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "message": str(exc.detail),
                 "error": "HTTP_EXCEPTION",
                 "path": request.url.path,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+    @app.exception_handler(ValueError)
+    async def value_error_handler(
+        request: Request,
+        exc: ValueError,
+    ):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "message": str(exc),
+                "error": "BAD_REQUEST",
+                "path": request.url.path,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -80,6 +97,6 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "error": "INTERNAL_SERVER_ERROR",
                 "details": str(exc) if app.debug else None,
                 "path": request.url.path,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )

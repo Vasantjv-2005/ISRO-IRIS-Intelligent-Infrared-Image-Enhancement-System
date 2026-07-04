@@ -9,6 +9,11 @@ from __future__ import annotations
 
 import mimetypes
 from pathlib import Path
+from typing import Any
+
+from app.utils.logger import Logger
+
+logger = Logger.get_logger(__name__)
 
 
 class DownloadService:
@@ -27,33 +32,30 @@ class DownloadService:
     def get_file(
         self,
         file_path: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Validate and return file metadata.
         """
-
         path = Path(file_path)
+        logger.info("Retrieving file metadata for: %s", file_path)
 
         if not path.exists():
-            raise FileNotFoundError(
-                f"File not found: {file_path}"
-            )
+            logger.error("File not found: %s", file_path)
+            raise FileNotFoundError(f"File not found: {file_path}")
 
         if not path.is_file():
-            raise IsADirectoryError(
-                f"Expected a file but received a directory: {file_path}"
-            )
+            logger.error("Path is not a file: %s", file_path)
+            raise IsADirectoryError(f"Expected a file but received a directory: {file_path}")
 
-        mime_type, _ = mimetypes.guess_type(
-            str(path)
-        )
+        mime_type, _ = mimetypes.guess_type(str(path))
+        resolved_type = mime_type or "application/octet-stream"
 
+        logger.debug("File %s resolved with MIME type %s", path.name, resolved_type)
         return {
             "path": str(path.resolve()),
             "filename": path.name,
             "size": path.stat().st_size,
-            "mime_type": mime_type
-            or "application/octet-stream",
+            "mime_type": resolved_type,
         }
 
     # =====================================================
@@ -67,7 +69,6 @@ class DownloadService:
         """
         Check whether a file exists.
         """
-
         return Path(file_path).exists()
 
     # =====================================================
@@ -81,14 +82,14 @@ class DownloadService:
         """
         Delete a file.
         """
-
         path = Path(file_path)
 
         if not path.exists():
+            logger.warning("Attempted to delete non-existent file: %s", file_path)
             return False
 
         path.unlink()
-
+        logger.info("Successfully deleted file: %s", file_path)
         return True
 
     # =====================================================
@@ -102,13 +103,11 @@ class DownloadService:
         """
         Return file size in bytes.
         """
-
         path = Path(file_path)
 
         if not path.exists():
-            raise FileNotFoundError(
-                f"File not found: {file_path}"
-            )
+            logger.error("File not found when getting size: %s", file_path)
+            raise FileNotFoundError(f"File not found: {file_path}")
 
         return path.stat().st_size
 
@@ -123,7 +122,6 @@ class DownloadService:
         """
         Return file extension.
         """
-
         return Path(file_path).suffix.lower()
 
 

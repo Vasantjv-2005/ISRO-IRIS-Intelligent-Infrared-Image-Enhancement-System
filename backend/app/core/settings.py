@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     DATABASE_NAME: str = Field(...)
 
     # =====================================================
+    # Authentication
+    # =====================================================
+
+    SECRET_KEY: str = "your-secret-key-change-in-production-iris-backend-2026"
+
+    ALGORITHM: str = "HS256"
+
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+
+    # =====================================================
     # Gemini AI
     # =====================================================
 

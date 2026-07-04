@@ -12,6 +12,9 @@ import numpy as np
 
 from app.ai_models.colorization_model import colorization_model
 from app.middleware.error_handler import ImageProcessingException
+from app.utils.logger import Logger
+
+logger = Logger.get_logger(__name__)
 
 
 class ColorizationService:
@@ -37,15 +40,17 @@ class ColorizationService:
             Output image path.
         """
         try:
-            return colorization_model.colorize(
+            logger.info("Colorizing image from %s to %s with colormap %s", input_path, output_path, color_map)
+            res = colorization_model.colorize(
                 input_path=input_path,
                 output_path=output_path,
                 color_map=color_map,
             )
+            logger.info("Successfully colorized image: %s", output_path)
+            return res
         except Exception as exc:
-            raise ImageProcessingException(
-                f"Failed to colorize image: {exc}"
-            ) from exc
+            logger.error("Failed to colorize image %s: %s", input_path, exc, exc_info=True)
+            raise ImageProcessingException(f"Failed to colorize image: {exc}") from exc
 
     def colorize_array(
         self,
@@ -68,9 +73,8 @@ class ColorizationService:
                 color_map=color_map,
             )
         except Exception as exc:
-            raise ImageProcessingException(
-                f"Failed to colorize image array: {exc}"
-            ) from exc
+            logger.error("Failed to colorize image array: %s", exc, exc_info=True)
+            raise ImageProcessingException(f"Failed to colorize image array: {exc}") from exc
 
 
 colorization_service = ColorizationService()

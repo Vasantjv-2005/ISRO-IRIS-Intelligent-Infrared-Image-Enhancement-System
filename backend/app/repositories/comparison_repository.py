@@ -271,6 +271,27 @@ class ComparisonRepository:
 
         return await self.collection.count_documents({})
 
+    # =====================================================
+    # Upsert by Upload ID
+    # =====================================================
+
+    async def upsert_by_upload_id(
+        self,
+        comparison: ComparisonModel,
+    ) -> ComparisonModel:
+        """
+        Update or insert comparison document by upload_id.
+        """
+
+        document = comparison.model_dump()
+        await self.collection.update_one(
+            {"upload_id": comparison.upload_id},
+            {"$set": document},
+            upsert=True,
+        )
+        logger.info("Comparison upserted for upload_id: %s", comparison.upload_id)
+        return comparison
+
 
 # ==========================================================
 # Singleton

@@ -330,5 +330,64 @@ class UploadRepository:
 
         return count > 0
 
+    # =====================================================
+    # Dashboard Statistics & Aggregations
+    # =====================================================
+
+    async def get_upload_statistics(self) -> dict:
+        """
+        Compute dashboard upload metrics.
+        """
+
+        total_uploads = await self.count()
+        total_processed = await self.collection.count_documents({"status": "completed"})
+        total_reports = await self.collection.count_documents({"report_generated": True})
+        total_completed_analysis = await self.collection.count_documents({"analysis_completed": True})
+        total_failed_jobs = await self.collection.count_documents({"status": "failed"})
+
+        pipeline_objects = [
+            {"$project": {"count": {"$size": {"$ifNull": ["$objects_detected", []]}}}},
+            {"$group": {"_id": None, "total": {"$sum": "$count"}}},
+        ]
+        cursor_objects = self.collection.aggregate(pipeline_objects)
+        res_objects = await cursor_objects.to_list(1)
+        total_objects = res_objects[0]["total"] if res_objects else 0
+
+        pipeline_storage = [
+            {"$group": {"_id": None, "total_size": {"$sum": "$file_size"}}}
+        ]
+        cursor_storage = self.collection.aggregate(pipeline_storage)
+        res_storage = await cursor_storage.to_list(1)
+        total_size_bytes = res_storage[0]["total_size"] if res_storage else 0
+
+        return {
+            "total_uploads": total_uploads,
+            "total_processed_images": total_processed,
+            "total_reports_generated": total_reports,
+            "total_completed_analysis": total_completed_analysis,
+            "total_failed_jobs": total_failed_jobs,
+            "total_objects_detected": total_objects,
+            "total_size_bytes": total_size_bytes,
+        }
+
+    async def get_recent_uploads(
+        self,
+        limit: int = 5,
+    ) -> list[dict]:
+        """
+        Return recent upload activities for the dashboard.
+        """
+
+        cursor = self.collection.find().sort("uploaded_at", -1).limit(limit)
+        recent = []
+        async for doc in cursor:
+            recent.append({
+                "upload_id": str(doc.get("upload_id") or doc.get("_id") or ""),
+                "filename": doc.get("filename", ""),
+                "status": doc.get("status", "uploaded"),
+                "uploaded_at": doc.get("uploaded_at") or doc.get("created_at") or utc_now(),
+            })
+        return recent
+
 
 upload_repository = UploadRepository()

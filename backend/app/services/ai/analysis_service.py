@@ -43,12 +43,14 @@ class AnalysisService:
         Initialize the Gemini model SDK.
         """
         try:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            self.model = genai.GenerativeModel("gemini-2.5-flash")
-            logger.info("Gemini GenerativeModel successfully initialized.")
+            if settings.GEMINI_API_KEY:
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                self.model = genai.GenerativeModel("gemini-2.5-flash")
+                logger.info("Gemini GenerativeModel successfully initialized.")
+            else:
+                logger.warning("GEMINI_API_KEY is not set. Relying on Groq fallback.")
         except Exception as exc:
-            logger.error("Failed to initialize Gemini SDK: %s", exc, exc_info=True)
-            raise AIModelException(f"Failed to initialize Gemini: {exc}") from exc
+            logger.warning("Failed to initialize Gemini SDK (%s). Relying on Groq fallback.", exc)
 
     def analyze(
         self,
@@ -56,7 +58,7 @@ class AnalysisService:
         image_name: str,
     ) -> dict[str, Any]:
         """
-        Analyze detected objects using Gemini.
+        Analyze detected objects using Gemini with automatic fallback to Groq AI.
 
         Args:
             detected_objects: Objects detected by YOLO.
@@ -66,7 +68,7 @@ class AnalysisService:
             Dictionary containing AI analysis results.
         """
         try:
-            logger.info("Starting Gemini scene analysis for image: %s", image_name)
+            logger.info("Starting AI scene analysis for image: %s", image_name)
 
             if not detected_objects:
                 prompt = f"""
@@ -98,10 +100,32 @@ class AnalysisService:
                 5. Confidence in interpretation
                 """
 
-            response = self.model.generate_content(prompt)
-            analysis_text = getattr(response, "text", str(response))
+            analysis_text = ""
+            if self.model and settings.GEMINI_API_KEY:
+                try:
+                    response = self.model.generate_content(prompt)
+                    analysis_text = getattr(response, "text", str(response)).strip()
+                    logger.info("Successfully completed Gemini scene analysis for: %s", image_name)
+                except Exception as gemini_err:
+                    logger.warning("Gemini analysis failed (%s). Attempting fallback to Groq AI...", gemini_err)
 
-            logger.info("Successfully completed Gemini scene analysis for: %s", image_name)
+            if not analysis_text and settings.GROQ_API_KEY:
+                try:
+                    from groq import Groq
+                    groq_client = Groq(api_key=settings.GROQ_API_KEY)
+                    completion = groq_client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=settings.GROQ_MODEL or "llama-3.3-70b-versatile",
+                    )
+                    if completion.choices and completion.choices[0].message.content:
+                        analysis_text = completion.choices[0].message.content.strip()
+                        logger.info("Successfully completed Groq AI scene analysis for: %s", image_name)
+                except Exception as groq_err:
+                    logger.error("Groq AI analysis failed for %s: %s", image_name, groq_err, exc_info=True)
+                    raise AIModelException(f"Both Gemini and Groq analysis failed. Groq error: {groq_err}") from groq_err
+
+            if not analysis_text:
+                raise AIModelException("AI analysis failed: Neither Gemini nor Groq produced valid output or API keys are missing.")
 
             return {
                 "success": True,
@@ -110,8 +134,10 @@ class AnalysisService:
             }
 
         except Exception as exc:
-            logger.error("Gemini scene analysis failed for %s: %s", image_name, exc, exc_info=True)
-            raise AIModelException(f"Gemini analysis failed: {exc}") from exc
+            logger.error("AI scene analysis failed for %s: %s", image_name, exc, exc_info=True)
+            if isinstance(exc, AIModelException):
+                raise
+            raise AIModelException(f"AI analysis failed: {exc}") from exc
 
     async def analyze_async(
         self,

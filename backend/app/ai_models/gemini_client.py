@@ -20,19 +20,24 @@ class GeminiClient:
         self,
         model_name: str = "gemini-2.5-flash",
     ) -> None:
+        from app.core.settings import settings
 
-        if not GEMINI_API_KEY:
+        if not GEMINI_API_KEY and not settings.GROQ_API_KEY:
             raise ValueError(
-                "GEMINI_API_KEY is missing."
+                "Both GEMINI_API_KEY and GROQ_API_KEY are missing."
             )
 
-        genai.configure(
-            api_key=GEMINI_API_KEY,
-        )
-
-        self.model = genai.GenerativeModel(
-            model_name=model_name,
-        )
+        self.model = None
+        if GEMINI_API_KEY:
+            try:
+                genai.configure(
+                    api_key=GEMINI_API_KEY,
+                )
+                self.model = genai.GenerativeModel(
+                    model_name=model_name,
+                )
+            except Exception as exc:
+                print(f"Failed to configure Gemini: {exc}")
 
     # -----------------------------------------------------
     # Generate Text
@@ -43,15 +48,32 @@ class GeminiClient:
         prompt: str,
     ) -> str:
         """
-        Generate text using Gemini.
+        Generate text using Gemini with automatic fallback to Groq AI.
         """
+        # Try Gemini first
+        if self.model and GEMINI_API_KEY:
+            try:
+                response = self.model.generate_content(prompt)
+                if response.text:
+                    return response.text.strip()
+            except Exception as exc:
+                print(f"Gemini generation failed ({exc}). Falling back to Groq AI...")
 
-        response = self.model.generate_content(
-            prompt
-        )
-
-        if response.text:
-            return response.text.strip()
+        # Fallback to Groq
+        from app.core.settings import settings
+        if settings.GROQ_API_KEY:
+            try:
+                from groq import Groq
+                client = Groq(api_key=settings.GROQ_API_KEY)
+                completion = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=settings.GROQ_MODEL or "llama-3.3-70b-versatile",
+                )
+                if completion.choices and completion.choices[0].message.content:
+                    return completion.choices[0].message.content.strip()
+            except Exception as groq_exc:
+                print(f"Groq generation failed: {groq_exc}")
+                raise RuntimeError(f"Both Gemini and Groq AI failed. Groq error: {groq_exc}") from groq_exc
 
         return ""
 

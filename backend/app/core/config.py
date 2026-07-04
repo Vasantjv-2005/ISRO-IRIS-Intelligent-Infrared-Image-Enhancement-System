@@ -60,6 +60,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 GEMINI_API_KEY = settings.GEMINI_API_KEY
 
 # =====================================================
+# Groq
+# =====================================================
+
+GROQ_API_KEY = settings.GROQ_API_KEY
+
+GROQ_MODEL = settings.GROQ_MODEL
+
+# =====================================================
 # Upload Configuration
 # =====================================================
 

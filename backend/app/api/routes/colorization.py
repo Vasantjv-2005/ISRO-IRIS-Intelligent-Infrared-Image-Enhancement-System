@@ -25,9 +25,10 @@ router = APIRouter(
 )
 async def colorize_image(
     image_path: str,
+    colormap: str = "inferno",
 ):
     """
-    Colorize an infrared image.
+    Colorize an infrared image. Supports colormaps: inferno, turbo, jet, magma, hot, etc.
     """
 
     try:
@@ -49,13 +50,15 @@ async def colorize_image(
         await colorization_controller.colorize(
             input_path=image_path,
             output_path=output_image,
+            color_map=colormap,
         )
 
         return {
             "success": True,
-            "message": "Image colorization completed successfully.",
+            "message": f"Image colorization completed successfully using {colormap} palette.",
             "input_image": image_path,
             "colorized_image": output_image,
+            "colormap_used": colormap,
         }
 
     except ImageProcessingException as exc:

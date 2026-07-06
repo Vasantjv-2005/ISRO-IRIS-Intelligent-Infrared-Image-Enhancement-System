@@ -20,7 +20,7 @@ class ColorizationController:
         self,
         input_path: str,
         output_path: str,
-        color_map: int = cv2.COLORMAP_INFERNO,
+        color_map: int | str = cv2.COLORMAP_INFERNO,
     ) -> str:
         """
         Colorize an infrared image.

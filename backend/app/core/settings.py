@@ -122,13 +122,30 @@ class Settings(BaseSettings):
 
     YOLO_MODEL_PATH: str = "weights/detection/yolov8.pt"
 
-    COLORIZATION_MODEL_PATH: str = "weights/colorization/colorization_model.pth"
+    COLORIZATION_MODEL_PATH: str = (
+        "weights/colorization/colorization_model.pth"
+    )
 
-    ENHANCEMENT_MODEL_PATH: str = "weights/enhancement/enhancement_model.pth"
+    ENHANCEMENT_MODEL_PATH: str = (
+        "weights/enhancement/enhancement_model.pth"
+    )
 
-    COLORIZATION_BACKEND: str = "auto"
+    # -----------------------------------------------------
+    # AI Backends
+    # -----------------------------------------------------
 
-    ENHANCEMENT_BACKEND: str = "auto"
+    # OpenCV is the production default because it provides
+    # deterministic enhancement without requiring trained
+    # model weights. Change this to "deep_learning" only
+    # after integrating a trained enhancement model.
+
+    ENHANCEMENT_BACKEND: str = "opencv"
+
+    # Keep colorization in auto only if a valid trained
+    # colorization model exists. Otherwise use "opencv"
+    # if your implementation supports it.
+
+    COLORIZATION_BACKEND: str = "opencv"
 
     # =====================================================
     # Logging

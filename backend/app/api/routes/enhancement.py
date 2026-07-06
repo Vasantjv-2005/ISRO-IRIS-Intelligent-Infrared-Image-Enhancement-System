@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from app.middleware.error_handler import ImageProcessingException
-from app.services.ai.enhancement_service import enhancement_service
+from app.controllers.enhancement_controller import enhancement_controller
 
 router = APIRouter(
     prefix="/enhancement",
@@ -44,7 +44,7 @@ async def enhance_image(
             output_directory / "enhanced_ai.jpg"
         )
 
-        enhancement_service.enhance(
+        await enhancement_controller.enhance(
             input_path=image_path,
             output_path=output_image,
         )

@@ -11,7 +11,7 @@ from app.schemas.analysis_schema import (
     AnalysisRequestSchema,
     AnalysisResponseSchema,
 )
-from app.services.ai.analysis_service import analysis_service
+from app.controllers.analysis_controller import analysis_controller
 
 router = APIRouter(
     prefix="/analysis",
@@ -34,24 +34,7 @@ async def analyze_scene(
 
     try:
 
-        result = analysis_service.analyze(
-            image_name=request.image_name,
-            detected_objects=[
-                detection.model_dump()
-                for detection in request.detected_objects
-            ],
-        )
-
-        return AnalysisResponseSchema(
-            success=True,
-            image=result["image"],
-            analysis=result["analysis"],
-            model="Gemini",
-            total_detected_objects=len(
-                request.detected_objects
-            ),
-            message="Scene analysis completed successfully.",
-        )
+        return await analysis_controller.analyze_scene(request)
 
     except AIModelException as exc:
 

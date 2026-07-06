@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
 
-from app.services.download.download_service import download_service
+from app.controllers.download_controller import download_controller
 
 router = APIRouter(
     prefix="/download",
@@ -28,7 +28,7 @@ async def download_file(
     Download a file from the server.
     """
     try:
-        file_info = download_service.get_file(file_path)
+        file_info = download_controller.get_file(file_path)
 
         return FileResponse(
             path=file_info["path"],

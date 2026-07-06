@@ -10,13 +10,17 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from ultralytics import YOLO
-
 from app.core.config import YOLO_MODEL_PATH
-from app.ai_models.utils import validate_weights
+from app.ai_models.utils import validate_weights, TORCH_AVAILABLE
 from app.middleware.error_handler import WeightsInvalidError
 
 logger = logging.getLogger("iris")
+
+try:
+    from ultralytics import YOLO
+except ImportError as e:
+    logger.warning(f"Ultralytics YOLO not available ({e}).")
+    YOLO = None
 
 
 class YOLOv8Model:
@@ -45,6 +49,10 @@ class YOLOv8Model:
         # Validate weights first to ensure it's not missing or a 0-byte placeholder
         validate_weights(self.model_path)
 
+        if not TORCH_AVAILABLE or YOLO is None:
+            logger.warning("YOLO or PyTorch is not available. Detection will return empty results.")
+            return
+
         try:
             self.model = YOLO(str(self.model_path))
         except Exception as e:
@@ -67,13 +75,14 @@ class YOLOv8Model:
         """
         Run object detection.
         """
-        self.load()
-
-        assert self.model is not None
-
         image = Path(image_path)
         if not image.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
+
+        self.load()
+        if self.model is None:
+            logger.warning("YOLO model not loaded. Returning empty detections.")
+            return []
 
         results = self.model.predict(
             source=str(image),

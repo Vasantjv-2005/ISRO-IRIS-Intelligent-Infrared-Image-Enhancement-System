@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from app.middleware.error_handler import ProcessingException
+from app.middleware.error_handler import ImageProcessingException
 from app.models.upload_model import ProcessingStatus
 from app.repositories.upload_repository import upload_repository
 from app.schemas.pipeline_schema import PipelineRequestSchema, PipelineResponseSchema
@@ -56,7 +56,7 @@ class PipelineService:
                 upload_id = f"pipe_{uuid.uuid4().hex[:8]}"
 
             logger.info("Starting end-to-end pipeline processing for upload: %s", upload_id)
-            await upload_repository.update_status(upload_id, ProcessingStatus.ENHANCING)
+            await upload_repository.update_status(upload_id, ProcessingStatus.PREPROCESSING)
 
             base_out = Path(request.output_directory)
             enhanced_dir = base_out / "enhanced"
@@ -74,20 +74,20 @@ class PipelineService:
                 output_path=enhanced_path,
             )
             await upload_repository.save_enhancement_path(upload_id, enhanced_path)
+            await upload_repository.update_status(upload_id, ProcessingStatus.ENHANCED)
             logger.info("Pipeline Step 1 (Enhancement) completed for: %s", upload_id)
 
             # Step 2: Colorization
-            await upload_repository.update_status(upload_id, ProcessingStatus.COLORIZING)
             colorized_path = str(colorized_dir / f"colorized_{input_file.name}")
             colorization_service.colorize(
                 input_path=enhanced_path,
                 output_path=colorized_path,
             )
             await upload_repository.save_colorization_path(upload_id, colorized_path)
+            await upload_repository.update_status(upload_id, ProcessingStatus.COLORIZED)
             logger.info("Pipeline Step 2 (Colorization) completed for: %s", upload_id)
 
             # Step 3: Detection
-            await upload_repository.update_status(upload_id, ProcessingStatus.DETECTING)
             detection_res = detection_service.detect(
                 image_path=colorized_path,
                 output_directory=str(detection_dir),
@@ -95,10 +95,11 @@ class PipelineService:
             )
             detections = detection_res.get("detections", [])
             await upload_repository.save_detection_results(upload_id, detections)
+            await upload_repository.update_status(upload_id, ProcessingStatus.DETECTED)
             logger.info("Pipeline Step 3 (Detection) completed with %d objects for: %s", len(detections), upload_id)
 
             # Step 4: AI Analysis
-            await upload_repository.update_status(upload_id, ProcessingStatus.ANALYZING)
+            await upload_repository.update_status(upload_id, ProcessingStatus.ANALYZED)
             analysis_res = await analysis_service.analyze_async(
                 detected_objects=detections,
                 image_name=input_file.name,
@@ -145,7 +146,7 @@ class PipelineService:
             logger.error("Pipeline execution failed for upload %s: %s", upload_id, exc, exc_info=True)
             if upload_id:
                 await upload_repository.mark_as_failed(upload_id, str(exc))
-            raise ProcessingException(f"Pipeline execution failed: {exc}") from exc
+            raise ImageProcessingException(f"Pipeline execution failed: {exc}") from exc
 
 
 pipeline_service = PipelineService()

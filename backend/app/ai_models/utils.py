@@ -5,6 +5,8 @@ AI Model Utilities
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
 
 from app.middleware.error_handler import (
@@ -13,6 +15,34 @@ from app.middleware.error_handler import (
 )
 
 logger = logging.getLogger("iris")
+
+
+def safe_import_torch():
+    """
+    Safely import torch and torch.nn, handling Windows DLL loading issues.
+    """
+    if sys.platform == "win32":
+        try:
+            import site
+            for site_path in site.getsitepackages() + [site.getusersitepackages()]:
+                torch_lib = os.path.join(site_path, "torch", "lib")
+                if os.path.exists(torch_lib):
+                    try:
+                        os.add_dll_directory(torch_lib)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    try:
+        import torch
+        import torch.nn as nn
+        return torch, nn, True
+    except ImportError as e:
+        logger.warning(f"PyTorch is not available or DLL failed to load ({e}). Using fallback backends.")
+        return None, None, False
+
+
+torch, nn, TORCH_AVAILABLE = safe_import_torch()
 
 
 def validate_weights(path: Path) -> None:

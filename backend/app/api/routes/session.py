@@ -11,7 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database.mongodb import get_database
 from app.models.session_model import SessionModel
-from app.services.session.session_service import session_service
+from app.controllers.session_controller import session_controller
 
 router = APIRouter(
     prefix="/sessions",
@@ -33,7 +33,7 @@ async def create_session(
     Create a new processing session for an uploaded image.
     """
     try:
-        return await session_service.create_session(db, upload_id)
+        return await session_controller.create_session(db, upload_id)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -53,7 +53,7 @@ async def get_session(
     """
     Retrieve details of a processing session by ID.
     """
-    session = await session_service.get_session(db, session_id)
+    session = await session_controller.get_session(db, session_id)
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -75,7 +75,7 @@ async def list_sessions(
     List recent processing sessions.
     """
     try:
-        return await session_service.list_sessions(db, limit)
+        return await session_controller.list_sessions(db, limit)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -94,7 +94,7 @@ async def delete_session(
     """
     Delete a processing session.
     """
-    success = await session_service.delete_session(db, session_id)
+    success = await session_controller.delete_session(db, session_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

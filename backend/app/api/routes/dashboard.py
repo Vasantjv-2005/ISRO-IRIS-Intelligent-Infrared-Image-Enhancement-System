@@ -11,7 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database.mongodb import get_database
 from app.schemas.dashboard_schema import DashboardResponseSchema
-from app.services.dashboard.dashboard_service import dashboard_service
+from app.controllers.dashboard_controller import dashboard_controller
 
 router = APIRouter(
     prefix="/dashboard",
@@ -32,7 +32,7 @@ async def get_dashboard_statistics(
     Retrieve statistics, recent activities, and system health status for the dashboard.
     """
     try:
-        stats = await dashboard_service.get_dashboard(db)
+        stats = await dashboard_controller.get_dashboard_statistics(db)
         return DashboardResponseSchema(**stats)
     except Exception as exc:
         raise HTTPException(

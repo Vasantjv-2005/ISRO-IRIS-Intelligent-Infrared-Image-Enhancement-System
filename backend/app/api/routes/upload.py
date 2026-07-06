@@ -11,7 +11,7 @@ from fastapi import (
 )
 
 from app.schemas.upload_schema import UploadResponseSchema
-from app.services.upload.upload_service import upload_service
+from app.controllers.upload_controller import upload_controller
 
 router = APIRouter(
     prefix="/upload",
@@ -31,4 +31,4 @@ async def upload_image(
     Upload an infrared image.
     """
 
-    return await upload_service.upload_image(file)
+    return await upload_controller.upload_image(file)

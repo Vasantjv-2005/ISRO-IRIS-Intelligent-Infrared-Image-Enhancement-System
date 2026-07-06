@@ -12,17 +12,17 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import torch
-import torch.nn as nn
 
 from app.core.config import COLORIZATION_BACKEND, COLORIZATION_MODEL_PATH
-from app.ai_models.utils import validate_weights
+from app.ai_models.utils import validate_weights, torch, nn, TORCH_AVAILABLE
 from app.middleware.error_handler import WeightsInvalidError
 
 logger = logging.getLogger("iris")
 
+_BaseModule = nn.Module if TORCH_AVAILABLE else object
 
-class ColorizationNet(nn.Module):
+
+class ColorizationNet(_BaseModule):
     """
     Placeholder PyTorch model architecture for future deep-learning colorization.
     Replace this with DeOldify, Palette, or custom model architecture.
@@ -31,10 +31,13 @@ class ColorizationNet(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         # Standard input 1-channel grayscale to 3-channel BGR
-        self.conv = nn.Conv2d(1, 3, kernel_size=3, padding=1)
+        if TORCH_AVAILABLE:
+            self.conv = nn.Conv2d(1, 3, kernel_size=3, padding=1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.conv(x)
+    def forward(self, x: any) -> any:
+        if TORCH_AVAILABLE:
+            return self.conv(x)
+        return x
 
 
 class ColorizationModel:
@@ -72,6 +75,14 @@ class ColorizationModel:
             return
 
         # For "deep_learning" or "auto" backend, try to load PyTorch weights
+        if not TORCH_AVAILABLE:
+            if self.backend == "deep_learning":
+                raise WeightsInvalidError("PyTorch is not available: DLL load failed or not installed.")
+            else:  # "auto" mode fallback
+                logger.warning("PyTorch not available. Falling back to OpenCV Pseudo Color.")
+                self.model_loaded = True
+                return
+
         try:
             validate_weights(self.model_path)
             
@@ -126,7 +137,7 @@ class ColorizationModel:
             raise FileNotFoundError(f"Input image not found: {input_path}")
 
         # If model is loaded successfully (meaning valid weights are loaded) and backend is not opencv
-        if self.backend in ("deep_learning", "auto") and self.model is not None:
+        if self.backend in ("deep_learning", "auto") and self.model is not None and TORCH_AVAILABLE:
             try:
                 # Read grayscale image
                 image = cv2.imread(str(input_file), cv2.IMREAD_GRAYSCALE)

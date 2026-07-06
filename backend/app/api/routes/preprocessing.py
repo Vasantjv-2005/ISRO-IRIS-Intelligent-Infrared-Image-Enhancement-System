@@ -10,8 +10,8 @@ from app.middleware.error_handler import ImageProcessingException
 from app.schemas.preprocessing_schema import (
     PreprocessingRequestSchema,
 )
-from app.services.image_processing.preprocessing_service import (
-    preprocessing_service,
+from app.controllers.preprocessing_controller import (
+    preprocessing_controller,
 )
 
 router = APIRouter(
@@ -33,11 +33,7 @@ async def preprocess_image(
 
     try:
 
-        result = preprocessing_service.process(
-            input_path=request.image_path,
-            output_directory=request.output_directory,
-            apply_crop=request.apply_crop,
-        )
+        result = await preprocessing_controller.preprocess(request)
 
         return result
 

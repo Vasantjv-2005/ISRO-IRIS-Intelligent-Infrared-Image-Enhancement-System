@@ -11,8 +11,11 @@ from pathlib import Path
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-import torch
-from ultralytics import YOLO
+from app.ai_models.utils import torch, TORCH_AVAILABLE
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None
 
 from app.ai_models.colorization_model import ColorizationNet
 from app.ai_models.enhancement_model import EnhancementNet
@@ -29,15 +32,18 @@ def main() -> None:
     enhancement_path.parent.mkdir(parents=True, exist_ok=True)
     yolo_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print("Generating mock colorization weights...")
-    color_model = ColorizationNet()
-    torch.save(color_model.state_dict(), str(colorization_path))
-    print(f"Saved: {colorization_path.absolute()}")
+    if TORCH_AVAILABLE and torch is not None:
+        print("Generating mock colorization weights...")
+        color_model = ColorizationNet()
+        torch.save(color_model.state_dict(), str(colorization_path))
+        print(f"Saved: {colorization_path.absolute()}")
 
-    print("Generating mock enhancement weights...")
-    enhance_model = EnhancementNet()
-    torch.save(enhance_model.state_dict(), str(enhancement_path))
-    print(f"Saved: {enhancement_path.absolute()}")
+        print("Generating mock enhancement weights...")
+        enhance_model = EnhancementNet()
+        torch.save(enhance_model.state_dict(), str(enhancement_path))
+        print(f"Saved: {enhancement_path.absolute()}")
+    else:
+        print("PyTorch not available, skipping mock .pth weight generation.")
 
     print("Downloading/Saving YOLOv8 model weights...")
     try:

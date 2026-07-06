@@ -11,7 +11,7 @@ from app.schemas.detection_schema import (
     DetectionRequestSchema,
     DetectionResponseSchema,
 )
-from app.services.ai.detection_service import detection_service
+from app.controllers.detection_controller import detection_controller
 
 router = APIRouter(
     prefix="/detection",
@@ -34,7 +34,7 @@ async def detect_objects(
 
     try:
 
-        result = detection_service.detect(
+        result = await detection_controller.detect(
             image_path=request.image_path,
             output_directory=request.output_directory,
             confidence=request.confidence,

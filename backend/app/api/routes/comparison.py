@@ -14,7 +14,7 @@ from app.schemas.comparison_schema import (
     ComparisonRequestSchema,
     ComparisonResponseSchema,
 )
-from app.services.dashboard.comparison_service import comparison_service
+from app.controllers.comparison_controller import comparison_controller
 
 router = APIRouter(
     prefix="/comparison",
@@ -36,7 +36,7 @@ async def compare_images(
     Compare two images and return comparison metrics and visualization path.
     """
     try:
-        result = await comparison_service.compare(
+        result = await comparison_controller.compare_images(
             db=db,
             upload_id=request.upload_id,
         )

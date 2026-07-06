@@ -9,8 +9,8 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from app.middleware.error_handler import ImageProcessingException
-from app.services.ai.colorization_service import (
-    colorization_service,
+from app.controllers.colorization_controller import (
+    colorization_controller,
 )
 
 router = APIRouter(
@@ -46,7 +46,7 @@ async def colorize_image(
             output_directory / "colorized.jpg"
         )
 
-        colorization_service.colorize(
+        await colorization_controller.colorize(
             input_path=image_path,
             output_path=output_image,
         )

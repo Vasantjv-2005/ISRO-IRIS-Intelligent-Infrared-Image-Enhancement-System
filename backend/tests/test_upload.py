@@ -19,7 +19,7 @@ client = TestClient(app)
 # Successful Upload
 # ==========================================================
 
-@patch("app.api.routes.upload.upload_service.upload_image")
+@patch("app.controllers.upload_controller.upload_service.upload_image")
 def test_upload_image_success(mock_upload: AsyncMock):
     """
     Test successful image upload.
@@ -85,7 +85,7 @@ def test_upload_without_file():
 # Invalid Content Type
 # ==========================================================
 
-@patch("app.api.routes.upload.upload_service.upload_image")
+@patch("app.controllers.upload_controller.upload_service.upload_image")
 def test_upload_invalid_file(mock_upload: AsyncMock):
     """
     Upload a text file.
@@ -119,7 +119,7 @@ def test_upload_invalid_file(mock_upload: AsyncMock):
 # Empty File
 # ==========================================================
 
-@patch("app.api.routes.upload.upload_service.upload_image")
+@patch("app.controllers.upload_controller.upload_service.upload_image")
 def test_empty_file(mock_upload: AsyncMock):
     """
     Upload an empty image.

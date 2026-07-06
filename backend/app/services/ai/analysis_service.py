@@ -56,6 +56,8 @@ class AnalysisService:
         self,
         detected_objects: list[dict[str, Any]],
         image_name: str,
+        output_directory: str = "outputs/analyzed",
+        input_image_path: str | None = None,
     ) -> dict[str, Any]:
         """
         Analyze detected objects using Gemini with automatic fallback to Groq AI.
@@ -63,9 +65,11 @@ class AnalysisService:
         Args:
             detected_objects: Objects detected by YOLO.
             image_name: Image filename.
+            output_directory: Directory to save analysis outputs.
+            input_image_path: Path to input image being analyzed.
 
         Returns:
-            Dictionary containing AI analysis results.
+            Dictionary containing AI analysis results and output paths.
         """
         try:
             logger.info("Starting AI scene analysis for image: %s", image_name)
@@ -127,11 +131,33 @@ class AnalysisService:
             if not analysis_text:
                 raise AIModelException("AI analysis failed: Neither Gemini nor Groq produced valid output or API keys are missing.")
 
-            return {
+            from pathlib import Path
+            import json, shutil
+            out_dir = Path(output_directory)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            stem = Path(image_name).stem
+            json_path = out_dir / f"{stem}.json"
+
+            output_img_path = out_dir / image_name
+            if input_image_path and Path(input_image_path).exists():
+                if Path(input_image_path) != output_img_path:
+                    shutil.copy(str(input_image_path), str(output_img_path))
+            elif not output_img_path.exists():
+                output_img_path = json_path
+
+            result_dict = {
                 "success": True,
                 "image": image_name,
                 "analysis": analysis_text,
+                "output_path": str(output_img_path),
+                "json_path": str(json_path),
             }
+            try:
+                json_path.write_text(json.dumps(result_dict, indent=2), encoding="utf-8")
+            except Exception as e:
+                logger.warning("Failed to save analysis json: %s", e)
+
+            return result_dict
 
         except Exception as exc:
             logger.error("AI scene analysis failed for %s: %s", image_name, exc, exc_info=True)
@@ -144,6 +170,8 @@ class AnalysisService:
         detected_objects: list[dict[str, Any]],
         image_name: str,
         upload_id: str | None = None,
+        output_directory: str = "outputs/analyzed",
+        input_image_path: str | None = None,
     ) -> dict[str, Any]:
         """
         Execute analysis and persist the results in the database repositories.
@@ -152,11 +180,18 @@ class AnalysisService:
             detected_objects: Objects detected by YOLO.
             image_name: Image filename.
             upload_id: Optional upload identifier for repository persistence.
+            output_directory: Directory to save analysis outputs.
+            input_image_path: Path to input image being analyzed.
 
         Returns:
-            Dictionary containing AI analysis results.
+            Dictionary containing AI analysis results and output paths.
         """
-        result = self.analyze(detected_objects=detected_objects, image_name=image_name)
+        result = self.analyze(
+            detected_objects=detected_objects,
+            image_name=image_name,
+            output_directory=output_directory,
+            input_image_path=input_image_path,
+        )
 
         if upload_id:
             try:
@@ -186,6 +221,7 @@ class AnalysisService:
                     upload_id=upload_id,
                     objects_detected=detected_objects,
                     scene_summary=analysis_doc.scene_summary or "",
+                    analyzed_path=result.get("output_path"),
                 )
                 logger.info("Persisted analysis results to database for upload: %s", upload_id)
             except Exception as exc:

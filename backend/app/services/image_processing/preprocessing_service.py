@@ -118,13 +118,22 @@ class PreprocessingService:
                 current_image = cropped_image
                 logger.debug("Cropped image saved to %s", cropped_image)
 
-            logger.info("Preprocessing pipeline completed successfully for %s", input_path)
+            # Preserve original filename across stages
+            final_output = output_dir / input_file.name
+            if current_image != final_output:
+                if current_image.exists():
+                    import shutil
+                    shutil.copy(str(current_image), str(final_output))
+                current_image = final_output
+
+            logger.info("Preprocessing pipeline completed successfully for %s -> %s", input_path, current_image)
             return {
                 "success": True,
                 "message": "Image preprocessing completed successfully.",
                 "input_image": str(input_file),
                 "output_directory": str(output_dir),
                 "processed_image": str(current_image),
+                "output_path": str(current_image),
                 "steps": {
                     "resized": str(resized_image),
                     "normalized": str(normalized_image),

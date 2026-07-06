@@ -29,6 +29,11 @@ class PipelineRequestSchema(BaseModel):
         description="Confidence threshold for YOLOv8 object detection.",
     )
 
+    color_map: str | int = Field(
+        default="inferno",
+        description="Colormap for thermal colorization.",
+    )
+
 
 class PipelineResponseSchema(BaseModel):
     """
@@ -38,8 +43,11 @@ class PipelineResponseSchema(BaseModel):
     success: bool
     upload_id: str
     processed_image: str
+    preprocessed_image: str | None = None
     enhanced_image: str
     colorized_image: str
+    detected_image: str | None = None
+    analyzed_image: str | None = None
     detection_count: int
     analysis: str
     report_path: str

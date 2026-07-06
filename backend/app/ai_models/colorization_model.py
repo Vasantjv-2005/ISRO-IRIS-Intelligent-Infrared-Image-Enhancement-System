@@ -24,20 +24,84 @@ _BaseModule = nn.Module if TORCH_AVAILABLE else object
 
 class ColorizationNet(_BaseModule):
     """
-    Placeholder PyTorch model architecture for future deep-learning colorization.
-    Replace this with DeOldify, Palette, or custom model architecture.
+    Production-ready PyTorch UNet architecture for infrared image colorization.
+    Translates 1-channel grayscale infrared thermal images to 3-channel RGB/BGR color palettes.
     """
 
     def __init__(self) -> None:
         super().__init__()
-        # Standard input 1-channel grayscale to 3-channel BGR
         if TORCH_AVAILABLE:
-            self.conv = nn.Conv2d(1, 3, kernel_size=3, padding=1)
+            # Encoder
+            self.enc1 = nn.Sequential(
+                nn.Conv2d(1, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(32, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
+            self.pool1 = nn.MaxPool2d(2, 2)
+            
+            self.enc2 = nn.Sequential(
+                nn.Conv2d(32, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(64, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
+            self.pool2 = nn.MaxPool2d(2, 2)
+
+            # Bottleneck
+            self.bottleneck = nn.Sequential(
+                nn.Conv2d(64, 128, kernel_size=3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(128, 128, kernel_size=3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
+
+            # Decoder
+            self.upconv2 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+            self.dec2 = nn.Sequential(
+                nn.Conv2d(128, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(64, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.LeakyReLU(0.2, inplace=True),
+            )
+
+            self.upconv1 = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
+            self.dec1 = nn.Sequential(
+                nn.Conv2d(64, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(32, 3, kernel_size=3, padding=1),
+                nn.Sigmoid(),
+            )
 
     def forward(self, x: any) -> any:
-        if TORCH_AVAILABLE:
-            return self.conv(x)
-        return x
+        if not TORCH_AVAILABLE:
+            return x
+        e1 = self.enc1(x)
+        p1 = self.pool1(e1)
+        e2 = self.enc2(p1)
+        p2 = self.pool2(e2)
+        
+        b = self.bottleneck(p2)
+        
+        u2 = self.upconv2(b)
+        if u2.shape != e2.shape:
+            u2 = nn.functional.interpolate(u2, size=e2.shape[2:], mode="bilinear", align_corners=False)
+        d2 = self.dec2(torch.cat([u2, e2], dim=1))
+        
+        u1 = self.upconv1(d2)
+        if u1.shape != e1.shape:
+            u1 = nn.functional.interpolate(u1, size=e1.shape[2:], mode="bilinear", align_corners=False)
+        out = self.dec1(torch.cat([u1, e1], dim=1))
+        return out
 
 
 class ColorizationModel:

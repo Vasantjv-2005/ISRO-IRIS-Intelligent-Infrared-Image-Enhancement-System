@@ -64,10 +64,34 @@ class DetectionService:
                 output_directory=output_directory,
             )
             logger.info("Detected %d objects in %s", len(detections), image_path)
+
+            from pathlib import Path
+            output_dir = Path(output_directory)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            input_file = Path(image_path)
+            output_file = output_dir / input_file.name
+
+            yolo_saved = output_dir / "predict" / input_file.name
+            if yolo_saved.exists() and yolo_saved != output_file:
+                import shutil
+                shutil.copy(str(yolo_saved), str(output_file))
+            elif not output_file.exists() and input_file.exists():
+                import cv2
+                img = cv2.imread(str(input_file))
+                if img is not None:
+                    for det in detections:
+                        bbox = det.get("bbox", {})
+                        x1, y1, x2, y2 = int(bbox.get("x1", 0)), int(bbox.get("y1", 0)), int(bbox.get("x2", 0)), int(bbox.get("y2", 0))
+                        label = f"{det.get('class_name', 'obj')} {det.get('confidence', 0.0):.2f}"
+                        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                        cv2.putText(img, label, (x1, max(y1 - 5, 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+                    cv2.imwrite(str(output_file), img)
+
             return {
                 "success": True,
                 "image_path": image_path,
                 "output_directory": output_directory,
+                "output_path": str(output_file),
                 "total_objects": len(detections),
                 "detections": detections,
             }

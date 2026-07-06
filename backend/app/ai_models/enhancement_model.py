@@ -24,20 +24,44 @@ _BaseModule = nn.Module if TORCH_AVAILABLE else object
 
 class EnhancementNet(_BaseModule):
     """
-    Placeholder PyTorch model architecture for future deep-learning enhancement.
-    Replace this with MIRNet, Zero-DCE, or custom model architecture.
+    Production-ready PyTorch Zero-DCE (Zero-Reference Deep Curve Estimation) architecture
+    for infrared and low-light image enhancement.
     """
 
     def __init__(self) -> None:
         super().__init__()
-        # Standard input 3-channel to 3-channel BGR image
         if TORCH_AVAILABLE:
-            self.conv = nn.Conv2d(3, 3, kernel_size=3, padding=1)
+            self.relu = nn.ReLU(inplace=True)
+            self.conv1 = nn.Conv2d(3, 32, 3, 1, 1)
+            self.conv2 = nn.Conv2d(32, 32, 3, 1, 1)
+            self.conv3 = nn.Conv2d(32, 32, 3, 1, 1)
+            self.conv4 = nn.Conv2d(32, 32, 3, 1, 1)
+            self.conv5 = nn.Conv2d(64, 32, 3, 1, 1)
+            self.conv6 = nn.Conv2d(64, 32, 3, 1, 1)
+            self.conv7 = nn.Conv2d(64, 24, 3, 1, 1)
 
     def forward(self, x: any) -> any:
-        if TORCH_AVAILABLE:
-            return self.conv(x)
-        return x
+        if not TORCH_AVAILABLE:
+            return x
+        x1 = self.relu(self.conv1(x))
+        x2 = self.relu(self.conv2(x1))
+        x3 = self.relu(self.conv3(x2))
+        x4 = self.relu(self.conv4(x3))
+        x5 = self.relu(self.conv5(torch.cat([x3, x4], 1)))
+        x6 = self.relu(self.conv6(torch.cat([x2, x5], 1)))
+        x_r = torch.tanh(self.conv7(torch.cat([x1, x6], 1)))
+        
+        # Apply 8 enhancement iterations using estimated curves
+        r1, r2, r3, r4, r5, r6, r7, r8 = torch.split(x_r, 3, dim=1)
+        x = x + r1 * (torch.pow(x, 2) - x)
+        x = x + r2 * (torch.pow(x, 2) - x)
+        x = x + r3 * (torch.pow(x, 2) - x)
+        enhanced = x + r4 * (torch.pow(x, 2) - x)
+        enhanced = enhanced + r5 * (torch.pow(enhanced, 2) - enhanced)
+        enhanced = enhanced + r6 * (torch.pow(enhanced, 2) - enhanced)
+        enhanced = enhanced + r7 * (torch.pow(enhanced, 2) - enhanced)
+        enhanced = enhanced + r8 * (torch.pow(enhanced, 2) - enhanced)
+        return torch.clamp(enhanced, 0.0, 1.0)
 
 
 class EnhancementModel:

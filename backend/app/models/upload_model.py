@@ -71,6 +71,8 @@ class UploadModel(BaseModel):
 
     uploaded_at: datetime = Field(default_factory=utc_now)
 
+    preprocessing_completed: bool = False
+
     enhancement_completed: bool = False
 
     colorization_completed: bool = False
@@ -82,8 +84,18 @@ class UploadModel(BaseModel):
     report_generated: bool = False
 
     # =====================================================
-    # AI Results
+    # AI Results & Stage Paths
     # =====================================================
+
+    preprocessed_path: str | None = None
+
+    enhanced_path: str | None = None
+
+    colorized_path: str | None = None
+
+    detected_path: str | None = None
+
+    analyzed_path: str | None = None
 
     report_path: str | None = None
 

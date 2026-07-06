@@ -147,6 +147,7 @@ class UploadRepository:
         self,
         upload_id: str,
         *,
+        preprocessing: bool | None = None,
         enhancement: bool | None = None,
         colorization: bool | None = None,
         detection: bool | None = None,
@@ -160,6 +161,9 @@ class UploadRepository:
         updates = {
             "updated_at": utc_now(),
         }
+
+        if preprocessing is not None:
+            updates["preprocessing_completed"] = preprocessing
 
         if enhancement is not None:
             updates["enhancement_completed"] = enhancement
@@ -188,17 +192,16 @@ class UploadRepository:
         return result.modified_count > 0
 
     # =====================================================
-    # Save Analysis
+    # Save Preprocessing Path
     # =====================================================
 
-    async def save_analysis(
+    async def save_preprocessing_path(
         self,
         upload_id: str,
-        objects_detected: list,
-        scene_summary: str,
+        preprocessed_path: str,
     ) -> bool:
         """
-        Save AI analysis.
+        Save preprocessed image path and flag.
         """
 
         result = await self.collection.update_one(
@@ -207,10 +210,134 @@ class UploadRepository:
             },
             {
                 "$set": {
-                    "objects_detected": objects_detected,
-                    "scene_summary": scene_summary,
+                    "preprocessed_path": preprocessed_path,
+                    "preprocessing_completed": True,
                     "updated_at": utc_now(),
                 }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Save Enhancement Path
+    # =====================================================
+
+    async def save_enhancement_path(
+        self,
+        upload_id: str,
+        enhanced_path: str,
+    ) -> bool:
+        """
+        Save enhanced image path and flag.
+        """
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": {
+                    "enhanced_path": enhanced_path,
+                    "enhancement_completed": True,
+                    "updated_at": utc_now(),
+                }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Save Colorization Path
+    # =====================================================
+
+    async def save_colorization_path(
+        self,
+        upload_id: str,
+        colorized_path: str,
+    ) -> bool:
+        """
+        Save colorized image path and flag.
+        """
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": {
+                    "colorized_path": colorized_path,
+                    "colorization_completed": True,
+                    "updated_at": utc_now(),
+                }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Save Detection Results
+    # =====================================================
+
+    async def save_detection_results(
+        self,
+        upload_id: str,
+        objects_detected: list,
+        detected_path: str | None = None,
+    ) -> bool:
+        """
+        Save object detection results and optional image path.
+        """
+
+        set_fields: dict = {
+            "objects_detected": objects_detected,
+            "detection_completed": True,
+            "updated_at": utc_now(),
+        }
+        if detected_path:
+            set_fields["detected_path"] = detected_path
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": set_fields
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Save Analysis
+    # =====================================================
+
+    async def save_analysis(
+        self,
+        upload_id: str,
+        objects_detected: list,
+        scene_summary: str,
+        analyzed_path: str | None = None,
+    ) -> bool:
+        """
+        Save AI analysis.
+        """
+
+        set_fields: dict = {
+            "objects_detected": objects_detected,
+            "scene_summary": scene_summary,
+            "analysis_completed": True,
+            "updated_at": utc_now(),
+        }
+        if analyzed_path:
+            set_fields["analyzed_path"] = analyzed_path
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": set_fields
             },
         )
 
@@ -237,6 +364,33 @@ class UploadRepository:
                 "$set": {
                     "report_path": report_path,
                     "report_generated": True,
+                    "updated_at": utc_now(),
+                }
+            },
+        )
+
+        return result.modified_count > 0
+
+    # =====================================================
+    # Mark As Failed
+    # =====================================================
+
+    async def mark_as_failed(
+        self,
+        upload_id: str,
+        error_message: str,
+    ) -> bool:
+        """
+        Mark upload as failed.
+        """
+
+        result = await self.collection.update_one(
+            {
+                "upload_id": upload_id
+            },
+            {
+                "$set": {
+                    "status": ProcessingStatus.FAILED,
                     "updated_at": utc_now(),
                 }
             },

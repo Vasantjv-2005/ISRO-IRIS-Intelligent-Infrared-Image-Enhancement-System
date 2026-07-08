@@ -109,22 +109,9 @@ class PipelineService:
             await self._update_session_progress(upload_id, 30, "Enhancement")
             logger.info("Pipeline Stage 2 (Enhancement) completed for %s: %s", upload_id, enhanced_path)
 
-            # Stage 3: Colorization (consumes enhanced image)
-            colorized_path = str(colorized_dir / input_file.name)
-            cmap_arg = getattr(request, "color_map", "inferno")
-            colorized_path = colorization_service.colorize(
-                input_path=enhanced_path,
-                output_path=colorized_path,
-                color_map=cmap_arg,
-            )
-            await upload_repository.save_colorization_path(upload_id, colorized_path)
-            await upload_repository.update_status(upload_id, ProcessingStatus.COLORIZED)
-            await self._update_session_progress(upload_id, 50, "Colorization")
-            logger.info("Pipeline Stage 3 (Colorization) completed for %s: %s", upload_id, colorized_path)
-
-            # Stage 4: YOLO Object Detection (consumes colorized image)
+            # Stage 3: YOLO Object Detection (runs STRICTLY on enhanced grayscale infrared image)
             detection_res = detection_service.detect(
-                image_path=colorized_path,
+                image_path=enhanced_path,
                 output_directory=str(detection_dir),
                 confidence=request.confidence,
             )
@@ -132,10 +119,10 @@ class PipelineService:
             detected_path = str(detection_res.get("output_path") or (detection_dir / input_file.name))
             await upload_repository.save_detection_results(upload_id, detections, detected_path=detected_path)
             await upload_repository.update_status(upload_id, ProcessingStatus.DETECTED)
-            await self._update_session_progress(upload_id, 70, "Object Detection")
-            logger.info("Pipeline Stage 4 (Detection) completed with %d objects for %s: %s", len(detections), upload_id, detected_path)
+            await self._update_session_progress(upload_id, 55, "Object Detection")
+            logger.info("Pipeline Stage 3 (Detection) completed with %d objects for %s: %s", len(detections), upload_id, detected_path)
 
-            # Stage 5: Gemini AI Analysis (consumes detection results and detected image)
+            # Stage 4: Gemini AI Analysis (consumes YOLO detections and enhanced/detected image)
             await upload_repository.update_status(upload_id, ProcessingStatus.ANALYZED)
             analysis_res = await analysis_service.analyze_async(
                 detected_objects=detections,
@@ -146,10 +133,23 @@ class PipelineService:
             )
             analysis_text = str(analysis_res.get("analysis", ""))
             analyzed_path = str(analysis_res.get("output_path") or (analyzed_dir / input_file.name))
-            await self._update_session_progress(upload_id, 85, "AI Analysis")
-            logger.info("Pipeline Stage 5 (AI Analysis) completed for %s: %s", upload_id, analyzed_path)
+            await self._update_session_progress(upload_id, 75, "AI Analysis")
+            logger.info("Pipeline Stage 4 (AI Analysis) completed for %s: %s", upload_id, analyzed_path)
 
-            # Stage 6: PDF Report Generation (consumes analysis results and analyzed image)
+            # Stage 5: Natural AI Colorization (STRICTLY FOR VISUALIZATION - Never input to YOLO)
+            colorized_path = str(colorized_dir / input_file.name)
+            cmap_arg = getattr(request, "color_map", "inferno")
+            colorized_path = colorization_service.colorize(
+                input_path=enhanced_path,
+                output_path=colorized_path,
+                color_map=cmap_arg,
+            )
+            await upload_repository.save_colorization_path(upload_id, colorized_path)
+            await upload_repository.update_status(upload_id, ProcessingStatus.COLORIZED)
+            await self._update_session_progress(upload_id, 88, "Colorization")
+            logger.info("Pipeline Stage 5 (Colorization for visualization) completed for %s: %s", upload_id, colorized_path)
+
+            # Stage 6: PDF Report Generation (includes Original, Enhanced, Detected Images + Bounding Boxes + Analysis)
             report_path = str(report_dir / f"report_{input_file.stem}.pdf")
             await report_generation_service.generate_report_async(
                 report_path=report_path,
@@ -157,6 +157,16 @@ class PipelineService:
                 detected_objects=detections,
                 analysis=analysis_text,
                 upload_id=upload_id,
+                original_image_path=raw_path,
+                enhanced_image_path=enhanced_path,
+                detected_image_path=detected_path,
+                processing_time=time.time() - start_time,
+                model_info={
+                    "yolo": "YOLOv8 Infrared Scene Detection Engine",
+                    "colorization": "Natural Daylight AI Colorization",
+                    "enhancement": "CLAHE + Multiscale Infrared Super-Resolution",
+                    "analysis": "Google Gemini Scientific Scene Interpreter",
+                },
             )
             await self._update_session_progress(upload_id, 95, "Report Generation")
             logger.info("Pipeline Stage 6 (Report Generation) completed for %s: %s", upload_id, report_path)

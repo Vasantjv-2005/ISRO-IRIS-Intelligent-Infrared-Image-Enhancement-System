@@ -99,6 +99,8 @@ TEMP_FOLDER = BASE_DIR / "uploads" / "temp"
 
 OUTPUT_FOLDER = BASE_DIR / "outputs"
 
+PREPROCESSING_FOLDER = OUTPUT_FOLDER / "preprocessing"
+
 ENHANCED_FOLDER = OUTPUT_FOLDER / "enhanced"
 
 COLORIZED_FOLDER = OUTPUT_FOLDER / "colorized"
@@ -129,6 +131,10 @@ COLORIZATION_BACKEND = settings.COLORIZATION_BACKEND
 
 ENHANCEMENT_BACKEND = settings.ENHANCEMENT_BACKEND
 
+COLORIZATION_SUPER_RESOLUTION = settings.COLORIZATION_SUPER_RESOLUTION
+
+COLORIZATION_TARGET_HEIGHT = settings.COLORIZATION_TARGET_HEIGHT
+
 # =====================================================
 # Create Required Directories
 # =====================================================
@@ -138,6 +144,7 @@ DIRECTORIES = [
     VALIDATED_FOLDER,
     RESIZED_FOLDER,
     TEMP_FOLDER,
+    PREPROCESSING_FOLDER,
     ENHANCED_FOLDER,
     COLORIZED_FOLDER,
     DETECTED_FOLDER,

@@ -104,15 +104,17 @@ class Settings(BaseSettings):
 
     UPLOAD_FOLDER: str = "uploads/raw"
 
-    PREPROCESSED_FOLDER: str = "uploads/preprocessed"
+    PREPROCESSED_FOLDER: str = "outputs/preprocessing"
 
-    ENHANCED_FOLDER: str = "uploads/enhanced"
+    ENHANCED_FOLDER: str = "outputs/enhanced"
 
-    COLORIZED_FOLDER: str = "uploads/colorized"
+    COLORIZED_FOLDER: str = "outputs/colorized"
 
-    DETECTION_FOLDER: str = "uploads/detected"
+    DETECTION_FOLDER: str = "outputs/detected"
 
-    REPORT_FOLDER: str = "uploads/reports"
+    ANALYZED_FOLDER: str = "outputs/analyzed"
+
+    REPORT_FOLDER: str = "outputs/reports"
 
     TEMP_FOLDER: str = "uploads/temp"
 
@@ -134,18 +136,13 @@ class Settings(BaseSettings):
     # AI Backends
     # -----------------------------------------------------
 
-    # OpenCV is the production default because it provides
-    # deterministic enhancement without requiring trained
-    # model weights. Change this to "deep_learning" only
-    # after integrating a trained enhancement model.
-
     ENHANCEMENT_BACKEND: str = "opencv"
 
-    # Keep colorization in auto only if a valid trained
-    # colorization model exists. Otherwise use "opencv"
-    # if your implementation supports it.
+    COLORIZATION_BACKEND: str = "huggingface"
 
-    COLORIZATION_BACKEND: str = "opencv"
+    COLORIZATION_SUPER_RESOLUTION: bool = True
+
+    COLORIZATION_TARGET_HEIGHT: int = 1080
 
     # =====================================================
     # Logging

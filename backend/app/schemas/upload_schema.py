@@ -89,8 +89,8 @@ class UploadDeleteResponse(BaseModel):
 
 
 class UploadListItem(BaseModel):
-    """
-    Single uploaded image.
+    """  
+      Single uploaded image.
     """
 
     upload_id: str

@@ -136,28 +136,28 @@ class InferenceEngine:
         )
 
         # -------------------------------------------------
-        # Colorization
+        # Detection (STRICTLY ON ENHANCED INFRARED IMAGE)
+        # -------------------------------------------------
+
+        detections = (
+            self.yolo_model.predict(
+                image_path=enhanced_path,
+                confidence=confidence,
+                save=True,
+                output_directory=str(
+                    detection_dir
+                ),
+            )
+        )
+
+        # -------------------------------------------------
+        # Colorization (STRICTLY FOR VISUALIZATION)
         # -------------------------------------------------
 
         colorized_path = (
             self.colorization_model.colorize(
                 input_path=enhanced_path,
                 output_path=str(colorized_image),
-            )
-        )
-
-        # -------------------------------------------------
-        # Detection
-        # -------------------------------------------------
-
-        detections = (
-            self.yolo_model.predict(
-                image_path=colorized_path,
-                confidence=confidence,
-                save=True,
-                output_directory=str(
-                    detection_dir
-                ),
             )
         )
 

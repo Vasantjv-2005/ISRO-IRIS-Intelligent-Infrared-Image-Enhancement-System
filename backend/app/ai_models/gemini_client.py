@@ -90,24 +90,26 @@ class GeminiClient:
         Generate a natural-language scene analysis.
         """
 
-        prompt = f"""
-You are an expert infrared image analyst.
+        formatted_objects = "\n".join(
+            f"- [{idx+1}] Object: {str(item.get('class_name', 'UNKNOWN')).upper()} | Confidence: {float(item.get('confidence', 0.0))*100:.1f}% | Bounding Box (x1, y1, x2, y2): ({item.get('bbox', {}).get('x1', 0):.0f}, {item.get('bbox', {}).get('y1', 0):.0f}, {item.get('bbox', {}).get('x2', 0):.0f}, {item.get('bbox', {}).get('y2', 0):.0f})"
+            for idx, item in enumerate(detected_objects)
+        ) if detected_objects else "No discrete objects detected above threshold."
 
-Image:
-{image_name}
+        prompt = f"""You are an expert scientific infrared image interpretation specialist evaluating image '{image_name}'.
 
-Detected Objects:
-{detected_objects}
+Total Objects Detected by YOLO Engine: {len(detected_objects)}
 
-Provide:
+Detected Objects Inventory:
+{formatted_objects}
 
-1. Scene summary
-2. Object observations
-3. Possible anomalies
-4. Safety concerns
-5. Short conclusion
+CRITICAL CONSTRAINT: You must NEVER invent, hallucinate, or assume any objects that are not listed in the Detected Objects Inventory above. You must ONLY analyze the exact objects returned by the YOLO detection engine above.
 
-Keep the answer professional.
+Provide a comprehensive, professional scientific interpretation structured under the following exact headings:
+### Scene Summary
+### Important Findings
+### Possible Hazards
+### Confidence Assessment
+### Recommendations
 """
 
         return self.generate(prompt)

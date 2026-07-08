@@ -75,34 +75,57 @@ class AnalysisService:
             logger.info("Starting AI scene analysis for image: %s", image_name)
 
             if not detected_objects:
-                prompt = f"""
-                Analyze an infrared image named '{image_name}'.
+                prompt = f"""You are an expert scientific infrared image analyst evaluating image '{image_name}'.
 
-                No objects were detected.
+CRITICAL CONSTRAINT: No objects were detected by the YOLO detection engine in this infrared image. Do NOT invent or hallucinate any objects.
 
-                Explain what could be present,
-                possible environmental conditions,
-                and limitations.
-                """
+Please provide your analysis structured under the following exact headings:
+### Scene Summary
+Provide a concise overview stating that no discrete thermal structures were detected above threshold.
+
+### Important Findings
+Discuss background thermal characteristics or ambient emissivity patterns.
+
+### Possible Hazards
+State whether any thermal anomalies or safety hazards are apparent.
+
+### Confidence Assessment
+Explain the confidence level of the negative detection result.
+
+### Recommendations
+Suggest adjustments to detection thresholds or imaging parameters if needed.
+"""
             else:
-                object_names = ", ".join(
-                    str(item.get("class_name", "unknown"))
-                    for item in detected_objects
+                formatted_objects = "\n".join(
+                    f"- [{idx+1}] Object: {str(item.get('class_name', 'UNKNOWN')).upper()} | Confidence: {float(item.get('confidence', 0.0))*100:.1f}% | Bounding Box (x1, y1, x2, y2): ({item.get('bbox', {}).get('x1', 0):.0f}, {item.get('bbox', {}).get('y1', 0):.0f}, {item.get('bbox', {}).get('x2', 0):.0f}, {item.get('bbox', {}).get('y2', 0):.0f})"
+                    for idx, item in enumerate(detected_objects)
                 )
 
-                prompt = f"""
-                Analyze the infrared image '{image_name}'.
+                prompt = f"""You are an expert scientific infrared image interpretation specialist evaluating image '{image_name}'.
 
-                Detected objects:
-                {object_names}
+Total Objects Detected by YOLO Engine: {len(detected_objects)}
 
-                Provide:
-                1. Scene summary
-                2. Important observations
-                3. Potential risks
-                4. Recommended actions
-                5. Confidence in interpretation
-                """
+Detected Objects Inventory (Class | Confidence | Bounding Box):
+{formatted_objects}
+
+CRITICAL CONSTRAINT: You must NEVER invent, hallucinate, or assume any objects that are not listed in the Detected Objects Inventory above. You must ONLY analyze the exact objects returned by the YOLO detection engine above.
+
+Provide a comprehensive, professional scientific interpretation structured under the following exact headings:
+### Scene Summary
+Provide an executive summary of the infrared scene based strictly on the detected thermal features and object layout.
+
+### Important Findings
+Detail each detected object, correlating its bounding box location and confidence score with its thermal characteristics.
+
+### Possible Hazards
+Assess any potential environmental, structural, thermal, or operational risks associated with these detected features.
+
+### Confidence Assessment
+Evaluate the reliability of the interpretation given the YOLO confidence scores.
+
+### Recommendations
+Provide actionable recommendations or follow-up procedures based on the scene interpretation.
+"""
 
             analysis_text = ""
             if self.model and settings.GEMINI_API_KEY:
@@ -193,39 +216,52 @@ class AnalysisService:
             input_image_path=input_image_path,
         )
 
-        if upload_id:
-            try:
-                converted_objects = [
-                    DetectedObject(
-                        label=str(obj.get("class_name", "unknown")),
-                        confidence=float(obj.get("confidence", 0.0)),
-                        bounding_box=list(obj.get("bbox", [])),
-                    )
-                    for obj in detected_objects
-                ]
+        target_upload_id = upload_id or image_name
+        try:
+            def _extract_bbox(b: Any) -> list[float]:
+                if isinstance(b, dict):
+                    return [
+                        float(b.get("x1", 0.0)),
+                        float(b.get("y1", 0.0)),
+                        float(b.get("x2", 0.0)),
+                        float(b.get("y2", 0.0)),
+                    ]
+                if isinstance(b, (list, tuple)) and len(b) >= 4:
+                    return [float(x) for x in b[:4]]
+                return [0.0, 0.0, 0.0, 0.0]
 
-                analysis_doc = AnalysisModel(
-                    upload_id=upload_id,
-                    image_name=image_name,
-                    status=AnalysisStatus.COMPLETED,
-                    scene_summary=result["analysis"][:200] + "..." if len(result["analysis"]) > 200 else result["analysis"],
-                    detailed_analysis=result["analysis"],
-                    detected_objects=converted_objects,
-                    object_count=len(converted_objects),
-                    confidence_score=0.85 if converted_objects else 0.50,
-                    analyzed_at=utc_now(),
+            converted_objects = [
+                DetectedObject(
+                    label=str(obj.get("class_name", "unknown")),
+                    confidence=float(obj.get("confidence", 0.0)),
+                    bounding_box=_extract_bbox(obj.get("bbox", {})),
                 )
+                for obj in detected_objects
+            ]
 
-                await analysis_repository.create(analysis_doc)
+            analysis_doc = AnalysisModel(
+                upload_id=target_upload_id,
+                image_name=image_name,
+                status=AnalysisStatus.COMPLETED,
+                scene_summary=result["analysis"][:200] + "..." if len(result["analysis"]) > 200 else result["analysis"],
+                detailed_analysis=result["analysis"],
+                detected_objects=converted_objects,
+                object_count=len(converted_objects),
+                confidence_score=0.85 if converted_objects else 0.50,
+                analyzed_at=utc_now(),
+            )
+
+            await analysis_repository.create(analysis_doc)
+            if upload_id:
                 await upload_repository.save_analysis(
                     upload_id=upload_id,
                     objects_detected=detected_objects,
                     scene_summary=analysis_doc.scene_summary or "",
                     analyzed_path=result.get("output_path"),
                 )
-                logger.info("Persisted analysis results to database for upload: %s", upload_id)
-            except Exception as exc:
-                logger.warning("Failed to persist analysis to DB for upload %s: %s", upload_id, exc)
+            logger.info("Persisted analysis results to database for upload: %s", target_upload_id)
+        except Exception as exc:
+            logger.error("Failed to persist analysis to DB for upload %s: %s", target_upload_id, exc, exc_info=True)
 
         return result
 

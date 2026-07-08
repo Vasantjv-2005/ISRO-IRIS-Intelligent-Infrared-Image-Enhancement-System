@@ -26,12 +26,13 @@ class AnalysisController:
         Analyze detected objects using Gemini AI.
         """
 
-        result = analysis_service.analyze(
+        result = await analysis_service.analyze_async(
             detected_objects=[
                 detection.model_dump()
                 for detection in request.detected_objects
             ],
             image_name=request.image_name,
+            upload_id=getattr(request, "upload_id", None) or request.image_name,
         )
 
         return AnalysisResponseSchema(

@@ -113,76 +113,98 @@ class YOLOv8Model:
         img_blur = cv2.GaussianBlur(img, (5, 5), 1.2)
         detections: list[dict[str, Any]] = []
 
-        # 1. RIVER / WATER BODY (Smooth lower foreground region)
-        lower_region = img_blur[int(h * 0.60):h, :]
-        lower_std = float(np.std(lower_region))
-        lower_mean = float(np.mean(lower_region))
-        if lower_std < 55.0:
-            water_conf = round(float(min(0.94, max(min_conf, 0.76 + (lower_mean / 600.0) - (lower_std / 350.0)))), 2)
-            detections.append({
-                "class_id": 17,
-                "class_name": "RIVER",
-                "confidence": water_conf,
-                "bbox": {"x1": int(w * 0.05), "y1": int(h * 0.62), "x2": int(w * 0.95), "y2": int(h * 0.96)},
-            })
+        # Adaptive Morphological & Spectral Segmentation for Satellite & Infrared Scenes
+        # No hardcoded spatial location boxes: detects only features whose physical contours exist in THIS image.
 
-        # 2. BRIDGE / PIER STRUCTURE (Horizontal structure crossing middle-lower scene)
-        mid_region = img_blur[int(h * 0.48):int(h * 0.68), :]
-        mid_edges = cv2.Canny(mid_region, 35, 110)
-        edge_density = float(np.sum(mid_edges > 0)) / float(mid_region.size)
-        if edge_density > 0.03:
-            bridge_conf = round(float(min(0.92, max(min_conf, 0.74 + edge_density * 1.5))), 2)
-            detections.append({
-                "class_id": 15,
-                "class_name": "BRIDGE",
-                "confidence": bridge_conf,
-                "bbox": {"x1": int(w * 0.15), "y1": int(h * 0.50), "x2": int(w * 0.90), "y2": int(h * 0.67)},
-            })
+        # 6. CLOUD COVER & THICK HAZE OUTLINES (High reflectance / atmospheric scattering)
+        try:
+            cloud_bin = np.where(img_blur > 195, 255, 0).astype(np.uint8)
+            contours_cloud, _ = cv2.findContours(cloud_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours_cloud:
+                area = cv2.contourArea(cnt)
+                if 400 <= area <= int(h * w * 0.35):
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    if bw > 25 and bh > 25:
+                        c_conf = round(float(min(0.96, max(min_conf, 0.82 + min(area / 15000.0, 0.14)))), 2)
+                        detections.append({
+                            "class_id": 20,
+                            "class_name": "CLOUD",
+                            "confidence": c_conf,
+                            "bbox": {"x1": bx, "y1": by, "x2": bx + bw, "y2": by + bh},
+                        })
 
-        # 3. EXHAUST CHIMNEY (Vertical columnar structure in upper right/left scene)
-        sobel_x = np.abs(cv2.Sobel(img_blur, cv2.CV_32F, 1, 0, ksize=3))
-        # Scan upper right quadrant for strong vertical edges
-        ur_region = sobel_x[int(h * 0.08):int(h * 0.52), int(w * 0.70):w]
-        if ur_region.size > 0 and np.max(ur_region) > 80:
-            # Find column peak horizontally
-            col_profile = np.mean(ur_region, axis=0)
-            peak_idx = int(np.argmax(col_profile)) + int(w * 0.70)
-            cx1 = max(0, peak_idx - int(w * 0.03))
-            cx2 = min(w - 1, peak_idx + int(w * 0.03))
-            chim_conf = round(float(min(0.95, max(min_conf, 0.81 + float(np.max(col_profile)) / 600.0))), 2)
-            detections.append({
-                "class_id": 10,
-                "class_name": "CHIMNEY",
-                "confidence": chim_conf,
-                "bbox": {"x1": cx1, "y1": int(h * 0.10), "x2": cx2, "y2": int(h * 0.50)},
-            })
+            haze_bin = np.where((img_blur > 160) & (img_blur <= 195), 255, 0).astype(np.uint8)
+            contours_haze, _ = cv2.findContours(haze_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours_haze:
+                area = cv2.contourArea(cnt)
+                if 600 <= area <= int(h * w * 0.40):
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    if bw > 30 and bh > 30:
+                        hz_conf = round(float(min(0.88, max(min_conf, 0.73 + min(area / 20000.0, 0.12)))), 2)
+                        detections.append({
+                            "class_id": 21,
+                            "class_name": "HAZE",
+                            "confidence": hz_conf,
+                            "bbox": {"x1": bx, "y1": by, "x2": bx + bw, "y2": by + bh},
+                        })
 
-            # 4. INDUSTRIAL FACTORY / BUILDING adjacent to chimney
-            fx1 = cx2
-            fx2 = min(w - 1, cx2 + int(w * 0.16))
-            if fx2 - fx1 > 15:
-                fact_region = img[int(h * 0.30):int(h * 0.53), fx1:fx2]
-                fact_conf = round(float(min(0.91, max(min_conf, 0.75 + float(np.mean(fact_region)) / 700.0))), 2)
-                detections.append({
-                    "class_id": 11,
-                    "class_name": "FACTORY",
-                    "confidence": fact_conf,
-                    "bbox": {"x1": fx1, "y1": int(h * 0.31), "x2": fx2, "y2": int(h * 0.53)},
-                })
+            # 7. SATELLITE INFRARED SEGMENTATION: WATER BODIES, FOREST CANOPY, & URBAN SETTLEMENTS
+            thresh_val, _ = cv2.threshold(img_blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # Water bodies: low infrared reflectance (< threshold)
+            water_bin = np.where(img_blur < thresh_val, 255, 0).astype(np.uint8)
+            contours_water, _ = cv2.findContours(water_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours_water:
+                area = cv2.contourArea(cnt)
+                if 250 <= area <= int(h * w * 0.25):
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    if bw > 15 and bh > 15:
+                        aspect_ratio = max(bw, bh) / float(max(1, min(bw, bh)))
+                        c_name = "RIVER" if aspect_ratio > 3.2 else "WATER"
+                        c_id = 17 if c_name == "RIVER" else 19
+                        w_conf = round(float(min(0.93, max(min_conf, 0.72 + min(area / 10000.0, 0.18)))), 2)
+                        detections.append({
+                            "class_id": c_id,
+                            "class_name": c_name,
+                            "confidence": w_conf,
+                            "bbox": {"x1": bx, "y1": by, "x2": bx + bw, "y2": by + bh},
+                        })
 
-        # 5. HIGH-EMISSIVITY THERMAL FOLIAGE / PLUMES along shoreline
-        mid_shore = img_blur[int(h * 0.25):int(h * 0.52), int(w * 0.22):int(w * 0.68)]
-        if mid_shore.size > 0:
-            shore_mean = float(np.mean(mid_shore))
-            shore_std = float(np.std(mid_shore))
-            if shore_mean > 110 or shore_std > 30:
-                tree_conf = round(float(min(0.89, max(min_conf, 0.71 + (shore_mean / 800.0)))), 2)
-                detections.append({
-                    "class_id": 18,
-                    "class_name": "TREE",
-                    "confidence": tree_conf,
-                    "bbox": {"x1": int(w * 0.22), "y1": int(h * 0.26), "x2": int(w * 0.68), "y2": int(h * 0.52)},
-                })
+            # Forest canopy: high infrared reflectance (>= threshold)
+            canopy_bin = np.where((img_blur >= thresh_val) & (img_blur <= 185), 255, 0).astype(np.uint8)
+            contours_canopy, _ = cv2.findContours(canopy_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours_canopy:
+                area = cv2.contourArea(cnt)
+                if 350 <= area <= int(h * w * 0.22):
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    if bw > 20 and bh > 20:
+                        f_conf = round(float(min(0.91, max(min_conf, 0.71 + min(area / 12000.0, 0.18)))), 2)
+                        detections.append({
+                            "class_id": 18,
+                            "class_name": "TREE",
+                            "confidence": f_conf,
+                            "bbox": {"x1": bx, "y1": by, "x2": bx + bw, "y2": by + bh},
+                        })
+
+            # Urban settlements / Built-up areas & roads
+            urban_bin = np.where((img_blur >= int(thresh_val * 0.8)) & (img_blur <= int(thresh_val * 1.2)), 255, 0).astype(np.uint8)
+            contours_urban, _ = cv2.findContours(urban_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours_urban:
+                area = cv2.contourArea(cnt)
+                if 500 <= area <= int(h * w * 0.20):
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    if bw > 25 and bh > 25:
+                        aspect_ratio = max(bw, bh) / float(max(1, min(bw, bh)))
+                        c_name = "ROAD" if aspect_ratio > 4.0 else "BUILDING"
+                        c_id = 12 if c_name == "ROAD" else 1
+                        u_conf = round(float(min(0.89, max(min_conf, 0.72 + min(area / 15000.0, 0.15)))), 2)
+                        detections.append({
+                            "class_id": c_id,
+                            "class_name": c_name,
+                            "confidence": u_conf,
+                            "bbox": {"x1": bx, "y1": by, "x2": bx + bw, "y2": by + bh},
+                        })
+        except Exception as exc:
+            logger.warning("Minute satellite feature contour detection skipped: %s", exc)
 
         return detections
 

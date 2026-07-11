@@ -19,14 +19,29 @@ class ReportRequestSchema(BaseModel):
         description="Original image filename.",
     )
 
-    original_image_path: str = Field(
-        ...,
+    original_image_path: str | None = Field(
+        default=None,
         description="Path to the original uploaded image.",
     )
 
-    processed_image_path: str = Field(
-        ...,
+    processed_image_path: str | None = Field(
+        default=None,
         description="Path to the processed image.",
+    )
+
+    colorized_image_path: str | None = Field(
+        default=None,
+        description="Path to the colorized image.",
+    )
+
+    detected_image_path: str | None = Field(
+        default=None,
+        description="Path to the detected image.",
+    )
+
+    upload_id: str | None = Field(
+        default=None,
+        description="Associated upload ID.",
     )
 
     detected_objects: list[DetectionObjectSchema] = Field(

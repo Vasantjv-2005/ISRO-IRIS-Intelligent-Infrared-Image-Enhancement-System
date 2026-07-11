@@ -8,6 +8,7 @@ generation, and similarity comparison, while updating repositories.
 
 from __future__ import annotations
 
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,7 @@ class PipelineService:
             PipelineResponseSchema containing all output paths and analysis.
         """
         try:
+            start_time = time.time()
             input_file = Path(request.image_path)
             if not input_file.exists():
                 raise FileNotFoundError(f"Input image not found: {request.image_path}")
@@ -157,8 +159,10 @@ class PipelineService:
                 detected_objects=detections,
                 analysis=analysis_text,
                 upload_id=upload_id,
-                original_image_path=raw_path,
+                original_image_path=request.image_path,
+                preprocessed_image_path=preprocessed_path,
                 enhanced_image_path=enhanced_path,
+                colorized_image_path=colorized_path,
                 detected_image_path=detected_path,
                 processing_time=time.time() - start_time,
                 model_info={

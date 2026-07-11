@@ -70,20 +70,19 @@ class ColorizationService:
         for maximum photographic clarity and zero blur.
         """
         h, w = image.shape[:2]
-        target_height = max(2160, h)
-        if h < target_height:
-            scale = target_height / float(h)
+        target_height = max(1080, h)
+        scale = min(2.0, target_height / float(h))
+        if scale > 1.05:
             target_width = int(round(w * scale))
+            target_height = int(round(h * scale))
             upscaled = cv2.resize(image, (target_width, target_height), interpolation=cv2.INTER_LANCZOS4)
         else:
             upscaled = image.copy()
 
-        # Multi-scale crisp unsharp mask for razor-sharp 4K photographic definition
+        # Multi-scale crisp unsharp mask for razor-sharp photographic definition
         blur1 = cv2.GaussianBlur(upscaled, (0, 0), 1.0)
-        blur2 = cv2.GaussianBlur(upscaled, (0, 0), 2.5)
-        sharp_4k = cv2.addWeighted(upscaled, 1.85, blur1, -0.65, 0)
-        sharp_4k = cv2.addWeighted(sharp_4k, 1.35, blur2, -0.35, 0)
-        return np.clip(sharp_4k, 0, 255).astype(np.uint8)
+        sharp_hd = cv2.addWeighted(upscaled, 1.65, blur1, -0.65, 0)
+        return np.clip(sharp_hd, 0, 255).astype(np.uint8)
 
     def _apply_color_correction_daylight(self, rgb_image: np.ndarray) -> np.ndarray:
         """

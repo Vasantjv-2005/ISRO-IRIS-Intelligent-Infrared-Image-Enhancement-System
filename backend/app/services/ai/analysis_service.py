@@ -96,8 +96,18 @@ Explain the confidence level of the negative detection result.
 Suggest adjustments to detection thresholds or imaging parameters if needed.
 """
             else:
+                def _fmt_item(idx: int, item: dict[str, Any]) -> str:
+                    bbox = item.get("bbox", {})
+                    if isinstance(bbox, dict):
+                        x1, y1, x2, y2 = float(bbox.get("x1", 0)), float(bbox.get("y1", 0)), float(bbox.get("x2", 0)), float(bbox.get("y2", 0))
+                    elif isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+                        x1, y1, x2, y2 = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+                    else:
+                        x1, y1, x2, y2 = 0.0, 0.0, 0.0, 0.0
+                    return f"- [{idx+1}] Object: {str(item.get('class_name', 'UNKNOWN')).upper()} | Confidence: {float(item.get('confidence', 0.0))*100:.1f}% | Bounding Box (x1, y1, x2, y2): ({x1:.0f}, {y1:.0f}, {x2:.0f}, {y2:.0f})"
+
                 formatted_objects = "\n".join(
-                    f"- [{idx+1}] Object: {str(item.get('class_name', 'UNKNOWN')).upper()} | Confidence: {float(item.get('confidence', 0.0))*100:.1f}% | Bounding Box (x1, y1, x2, y2): ({item.get('bbox', {}).get('x1', 0):.0f}, {item.get('bbox', {}).get('y1', 0):.0f}, {item.get('bbox', {}).get('x2', 0):.0f}, {item.get('bbox', {}).get('y2', 0):.0f})"
+                    _fmt_item(idx, item)
                     for idx, item in enumerate(detected_objects)
                 )
 

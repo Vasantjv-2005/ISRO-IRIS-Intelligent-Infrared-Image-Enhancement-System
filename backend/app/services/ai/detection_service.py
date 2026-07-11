@@ -150,12 +150,33 @@ class DetectionService:
 
                 cv2.imwrite(str(output_file), img, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
+            # Compute summary table detailing total pixel counts, area coverage %, and object counts
+            total_img_pixels = max(1, h * w)
+            summary_map: dict[str, dict[str, Any]] = {}
+            for det in detections:
+                c_name = str(det.get("class_name", "UNKNOWN")).upper()
+                bx = det.get("bbox", {})
+                w_px = max(0, bx.get("x2", 0) - bx.get("x1", 0))
+                h_px = max(0, bx.get("y2", 0) - bx.get("y1", 0))
+                box_pixels = w_px * h_px
+                if c_name not in summary_map:
+                    summary_map[c_name] = {"class_name": c_name, "object_count": 0, "pixel_count": 0, "area_coverage_pct": 0.0}
+                summary_map[c_name]["object_count"] += 1
+                summary_map[c_name]["pixel_count"] += box_pixels
+
+            class_summary = []
+            for c_name, data in summary_map.items():
+                pct = round(min(100.0, (data["pixel_count"] / float(total_img_pixels)) * 100.0), 2)
+                data["area_coverage_pct"] = pct
+                class_summary.append(data)
+
             return {
                 "success": True,
                 "image_path": image_path,
                 "output_directory": output_directory,
                 "output_path": str(output_file),
                 "total_objects": len(detections),
+                "class_summary": class_summary,
                 "detections": detections,
             }
         except Exception as exc:

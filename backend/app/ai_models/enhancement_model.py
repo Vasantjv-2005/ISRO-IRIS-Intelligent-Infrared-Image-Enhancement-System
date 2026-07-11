@@ -235,40 +235,44 @@ class EnhancementModel:
                     f"Deep learning enhancement failed ({e}). Falling back to OpenCV."
                 )
 
-        # OpenCV processing (CLAHE + Bilateral Filter + Unsharp Masking)
+        # High-definition OpenCV multi-scale enhancement (CLAHE + Bilateral Detail Boosting + Micro-Contrast)
         try:
             is_color = len(image.shape) == 3 and image.shape[2] == 3
 
             if is_color:
-                # Convert to LAB color space
+                # Convert to LAB color space to process luminance independently
                 lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
                 l_channel, a_channel, b_channel = cv2.split(lab)
 
-                # Denoise L channel using Bilateral filter
-                denoised_l = cv2.bilateralFilter(
-                    l_channel, d=9, sigmaColor=75, sigmaSpace=75
-                )
+                # Edge-preserving bilateral filter to reduce sensor grain while retaining sharp foliage/water boundaries
+                denoised_l = cv2.bilateralFilter(l_channel, d=7, sigmaColor=18, sigmaSpace=18)
 
-                # Apply CLAHE to L channel
-                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                # Apply high-definition CLAHE for local contrast equalization
+                clahe = cv2.createCLAHE(clipLimit=2.6, tileGridSize=(8, 8))
                 enhanced_l = clahe.apply(denoised_l)
 
-                # Merge back
-                merged = cv2.merge((enhanced_l, a_channel, b_channel))
+                # Extract and boost minute high-frequency structures (canopy edges, shorelines, fine roads)
+                blur_detail = cv2.GaussianBlur(enhanced_l, (0, 0), 2.0)
+                detail_layer = cv2.subtract(enhanced_l, blur_detail)
+                boosted_l = cv2.addWeighted(enhanced_l, 1.0, detail_layer, 0.85, 0)
+
+                # Merge back to BGR space
+                merged = cv2.merge((boosted_l, a_channel, b_channel))
                 enhanced = cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
             else:
-                # Grayscale image
-                denoised = cv2.bilateralFilter(
-                    image, d=9, sigmaColor=75, sigmaSpace=75
-                )
-                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+                # Grayscale image enhancement
+                denoised = cv2.bilateralFilter(image, d=7, sigmaColor=18, sigmaSpace=18)
+                clahe = cv2.createCLAHE(clipLimit=2.6, tileGridSize=(8, 8))
                 enhanced = clahe.apply(denoised)
 
-            # Apply detail enhancement/sharpening using unsharp masking
-            gaussian = cv2.GaussianBlur(enhanced, (5, 5), 1.0)
-            sharpened = cv2.addWeighted(enhanced, 1.5, gaussian, -0.5, 0)
+                blur_detail = cv2.GaussianBlur(enhanced, (0, 0), 2.0)
+                detail_layer = cv2.subtract(enhanced, blur_detail)
+                enhanced = cv2.addWeighted(enhanced, 1.0, detail_layer, 0.85, 0)
 
-            return sharpened
+            # High-precision crisp unsharp masking
+            blur_fine = cv2.GaussianBlur(enhanced, (0, 0), 1.0)
+            sharpened = cv2.addWeighted(enhanced, 1.55, blur_fine, -0.55, 0)
+            return np.clip(sharpened, 0, 255).astype(np.uint8)
         except Exception as e:
             raise RuntimeError(f"Failed to enhance image array: {e}") from e
 

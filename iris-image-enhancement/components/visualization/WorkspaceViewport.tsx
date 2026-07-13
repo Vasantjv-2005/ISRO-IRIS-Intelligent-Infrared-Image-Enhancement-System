@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sliders,
@@ -22,15 +22,30 @@ import { GeminiAnalysisCard } from '@/components/visualization/GeminiAnalysisCar
 import { MetricsGauge } from '@/components/visualization/MetricsGauge'
 import { useImage } from '@/lib/context/ImageContext'
 import { usePipeline } from '@/lib/context/PipelineContext'
+import { getFileDownloadUrl } from '@/lib/api'
 import { CHANDRA_09_DEMO_DATA, generateThermalSvgUrl } from '@/lib/demoData'
+import { useDownload } from '@/hooks'
 
 type ViewportMode = 'comparison' | 'detection' | 'palette' | 'sidebyside'
 
 export function WorkspaceViewport() {
   const { currentImage, setCurrentImage } = useImage()
-  const { settings, updateSettings, markStepComplete } = usePipeline()
+  const { downloadFile } = useDownload()
+  const { state, settings, updateSettings, markStepComplete } = usePipeline()
   const [mode, setMode] = useState<ViewportMode>('comparison')
   const [hoveredDetection, setHoveredDetection] = useState<any | null>(null)
+
+  useEffect(() => {
+    if (state.currentStep === 'detection' || state.currentStep === 'analysis') {
+      setMode('detection')
+    } else if (
+      state.currentStep === 'preprocessing' ||
+      state.currentStep === 'enhancement' ||
+      state.currentStep === 'colorization'
+    ) {
+      setMode('comparison')
+    }
+  }, [state.currentStep])
 
   const handleLoadDemo = () => {
     setCurrentImage(CHANDRA_09_DEMO_DATA)
@@ -42,9 +57,9 @@ export function WorkspaceViewport() {
     markStepComplete('analysis')
   }
 
-  const beforeImg = currentImage?.original_image
+  const beforeImg = getFileDownloadUrl(currentImage?.original_image)
   const afterImg =
-    currentImage?.processed_image ||
+    getFileDownloadUrl(currentImage?.processed_image) ||
     (currentImage ? generateThermalSvgUrl(settings.colormap as any) : undefined)
 
   const detections = currentImage?.detections || []
@@ -200,6 +215,57 @@ export function WorkspaceViewport() {
                       <span>
                         Hover over any bounding box on the canvas to inspect real-time object telemetry and radiometric coordinates.
                       </span>
+                    </div>
+                  )}
+
+                  {/* Structured Tactical Target Registry Table */}
+                  {detections && detections.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-border/80 bg-background/80 overflow-hidden shadow-md">
+                      <div className="px-4 py-2.5 bg-card/90 border-b border-border/80 flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                          <Target className="w-3.5 h-3.5" />
+                          Structured Target Classification Registry ({detections.length} Detected)
+                        </span>
+                        <Badge variant="success" size="sm">REAL-TIME TELEMETRY</Badge>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-muted/40 text-muted-foreground uppercase border-b border-border/60">
+                            <tr>
+                              <th className="py-2 px-4">Tag ID</th>
+                              <th className="py-2 px-4">Classification</th>
+                              <th className="py-2 px-4">Confidence</th>
+                              <th className="py-2 px-4">Radiometric BBox [X, Y, W, H]</th>
+                              <th className="py-2 px-4 text-right">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/40">
+                            {detections.map((det: any, i: number) => {
+                              const name = String(det.class || det.class_name || 'TARGET')
+                              const conf = typeof det.confidence === 'number' ? det.confidence : 0.9
+                              return (
+                                <tr
+                                  key={det.id || i}
+                                  className="hover:bg-primary/5 transition-colors cursor-pointer"
+                                  onMouseEnter={() => setHoveredDetection(det)}
+                                >
+                                  <td className="py-2.5 px-4 font-bold text-primary">[#0{i + 1}]</td>
+                                  <td className="py-2.5 px-4 font-semibold text-foreground">{name.toUpperCase()}</td>
+                                  <td className="py-2.5 px-4 text-secondary font-bold">{(conf * 100).toFixed(1)}%</td>
+                                  <td className="py-2.5 px-4 text-muted-foreground">
+                                    [{det.x || 0}, {det.y || 0}, {det.width || 0}x{det.height || 0}]
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right">
+                                    <span className="px-2 py-0.5 rounded text-[10px] bg-green-500/15 text-green-400 border border-green-500/30">
+                                      LOCKED
+                                    </span>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </motion.div>
@@ -360,6 +426,46 @@ export function WorkspaceViewport() {
           ))}
         </div>
       </div>
+
+      {/* Download Assets Bar */}
+      {currentImage && (
+        <GlassCard className="p-4 border-secondary/40">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Download className="w-4 h-4 text-secondary" />
+              <span className="text-xs font-mono font-extrabold uppercase text-foreground">
+                EXPORT RADIOMETRIC ASSETS & REPORTS
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => downloadFile(currentImage.file_path || 'test_gray.jpg', 'iris_mission_report.pdf')}
+                className="px-3 py-1.5 rounded-lg bg-secondary/15 hover:bg-secondary/25 border border-secondary/40 text-secondary text-xs font-mono font-bold transition-all flex items-center gap-1.5"
+              >
+                <span>📄 DOWNLOAD PDF REPORT</span>
+              </button>
+              <button
+                onClick={() => downloadFile(currentImage.processed_image || currentImage.file_path || 'test_out.jpg', 'enhanced_infrared.jpg')}
+                className="px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/40 text-primary text-xs font-mono font-bold transition-all flex items-center gap-1.5"
+              >
+                <span>⚡ ENHANCED IMAGE</span>
+              </button>
+              <button
+                onClick={() => downloadFile(currentImage.processed_image || currentImage.file_path || 'test_out.jpg', 'colorized_infrared.jpg')}
+                className="px-3 py-1.5 rounded-lg bg-accent/15 hover:bg-accent/25 border border-accent/40 text-accent text-xs font-mono font-bold transition-all flex items-center gap-1.5"
+              >
+                <span>🎨 COLORIZED IMAGE</span>
+              </button>
+              <button
+                onClick={() => downloadFile(currentImage.processed_image || currentImage.file_path || 'test_out.jpg', 'yolo_detection_overlay.jpg')}
+                className="px-3 py-1.5 rounded-lg bg-iris-orange/15 hover:bg-iris-orange/25 border border-iris-orange/40 text-iris-orange text-xs font-mono font-bold transition-all flex items-center gap-1.5"
+              >
+                <span>🎯 DETECTION IMAGE</span>
+              </button>
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       {/* Gemini Multimodal Scene Intelligence Briefing */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>

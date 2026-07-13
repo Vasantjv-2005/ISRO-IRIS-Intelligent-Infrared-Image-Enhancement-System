@@ -108,8 +108,8 @@ class ColorizationService:
         l_ultra_sharp = np.clip(cv2.filter2D(l_hdr, -1, kernel), 0, 255).astype(np.uint8)
 
         # 2. Expand chromaticity saturation around neutral 128 for rich, vivid multi-color differentiation
-        a_vibrant = np.clip(128.0 + (a.astype(np.float32) - 128.0) * 1.40, 0, 255).astype(np.uint8)
-        b_vibrant = np.clip(128.0 + (b.astype(np.float32) - 128.0) * 1.40, 0, 255).astype(np.uint8)
+        a_vibrant = np.clip(128.0 + (a.astype(np.float32) - 128.0) * 1.65, 0, 255).astype(np.uint8)
+        b_vibrant = np.clip(128.0 + (b.astype(np.float32) - 128.0) * 1.65, 0, 255).astype(np.uint8)
 
         merged = cv2.merge([l_ultra_sharp, a_vibrant, b_vibrant])
         return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)

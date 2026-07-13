@@ -58,14 +58,33 @@ export default function SignupPage() {
 
     try {
       const response = await register(fullName, email, password, confirmPassword)
-      if (response.access_token) {
-        setSuccess('Account created successfully! Redirecting...')
-        localStorage.setItem('token', response.access_token)
-        localStorage.setItem('user', JSON.stringify(response.user || { email, full_name: fullName }))
-        setTimeout(() => router.push('/'), 1500)
+      const payload = response?.data || response
+      const token = payload?.access_token
+      const userData = payload?.user || { email, full_name: fullName }
+
+      if (token) {
+        setSuccess('Account created successfully! Redirecting to Command Center...')
+        localStorage.setItem('token', token)
+        localStorage.setItem('auth_token', token)
+        localStorage.setItem('user', JSON.stringify(userData))
+        localStorage.setItem('auth_user', JSON.stringify(userData))
+        document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`
+        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 1000)
+      } else {
+        setError('Account created but access token was missing. Please try logging in.')
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed. Please try again.')
+      const detail = err.response?.data?.detail
+      const errMsg =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d: any) => d.msg).join(', ')
+            : err.message || 'Registration failed. Please try again.'
+      setError(errMsg)
     } finally {
       setLoading(false)
     }

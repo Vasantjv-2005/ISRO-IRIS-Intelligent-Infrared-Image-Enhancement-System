@@ -13,14 +13,14 @@ interface UploadDropzoneProps {
   onComplete?: (uploadId: string) => void
 }
 
+import { useUpload } from '@/hooks'
+
 export function UploadDropzone({ onComplete }: UploadDropzoneProps) {
   const [isDragActive, setIsDragActive] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { setCurrentImage } = useImage()
-  const { markStepComplete, updateStep } = usePipeline()
+  const { uploadAsync, isUploading } = useUpload()
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -43,44 +43,31 @@ export function UploadDropzone({ onComplete }: UploadDropzoneProps) {
   }
 
   const processFile = async (file: File) => {
-    // Validate file type
-    const validTypes = ['image/png', 'image/jpeg', 'image/tiff']
+    // Validate file type & size
+    const validTypes = ['image/png', 'image/jpeg', 'image/tiff', 'image/jpg']
     if (!validTypes.includes(file.type)) {
       setErrorMessage('Please upload a PNG, JPEG, or TIFF image')
       setUploadStatus('error')
       return
     }
+    if (file.size > 50 * 1024 * 1024) {
+      setErrorMessage('File size exceeds 50MB limit')
+      setUploadStatus('error')
+      return
+    }
 
-    setIsUploading(true)
     setUploadStatus('idle')
     setErrorMessage('')
 
     try {
-      const response = await uploadAPI.upload(file)
-      const { upload_id, filename, file_path, resolution, channels, format } = response.data
-
-      setCurrentImage({
-        upload_id,
-        filename,
-        file_path,
-        resolution,
-        channels,
-        format,
-        original_image: file_path,
-      })
-
-      markStepComplete('upload')
-      updateStep('preprocessing')
+      const response = await uploadAsync(file)
       setUploadStatus('success')
-
-      if (onComplete) {
-        onComplete(upload_id)
+      if (onComplete && response?.upload_id) {
+        onComplete(response.upload_id)
       }
     } catch (error: any) {
-      setErrorMessage(error.response?.data?.detail || 'Upload failed')
+      setErrorMessage(error.response?.data?.detail || error.message || 'Upload failed')
       setUploadStatus('error')
-    } finally {
-      setIsUploading(false)
     }
   }
 

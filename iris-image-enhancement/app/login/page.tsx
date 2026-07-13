@@ -28,13 +28,30 @@ export default function LoginPage() {
 
     try {
       const response = await login(email, password)
-      if (response.access_token) {
-        localStorage.setItem('token', response.access_token)
-        localStorage.setItem('user', JSON.stringify(response.user || { email }))
-        router.push('/')
+      const payload = response?.data || response
+      const token = payload?.access_token
+      const userData = payload?.user || { email }
+
+      if (token) {
+        localStorage.setItem('token', token)
+        localStorage.setItem('auth_token', token)
+        localStorage.setItem('user', JSON.stringify(userData))
+        localStorage.setItem('auth_user', JSON.stringify(userData))
+        document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`
+        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`
+        window.location.href = '/'
+      } else {
+        setError('Authentication succeeded but token was missing. Please try again.')
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please try again.')
+      const detail = err.response?.data?.detail
+      const errMsg =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d: any) => d.msg).join(', ')
+            : err.message || 'Login failed. Please try again.'
+      setError(errMsg)
     } finally {
       setLoading(false)
     }

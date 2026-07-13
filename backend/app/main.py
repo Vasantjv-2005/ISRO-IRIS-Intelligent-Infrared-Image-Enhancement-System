@@ -72,10 +72,11 @@ register_exception_handlers(app)
 # CORS Middleware Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS if not settings.DEBUG else ["*"],
-    allow_credentials=settings.ALLOW_CREDENTIALS if not settings.DEBUG else True,
-    allow_methods=settings.ALLOW_METHODS,
-    allow_headers=settings.ALLOW_HEADERS,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origin_regex="http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

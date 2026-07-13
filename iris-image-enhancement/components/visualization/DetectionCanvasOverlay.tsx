@@ -59,45 +59,99 @@ export function DetectionCanvasOverlay({
       ctx.drawImage(img, 0, 0)
 
       // Draw bounding boxes
-      const filteredDetections = detections.filter((d) => d.confidence >= confidenceThreshold)
+      // Normalize detections to support both frontend and backend YOLO format
+      const normalizedDetections = detections.map((d: any, idx: number) => {
+        const cls = String(d.class || d.class_name || d.name || 'TARGET')
+        let x = typeof d.x === 'number' ? d.x : 0
+        let y = typeof d.y === 'number' ? d.y : 0
+        let width = typeof d.width === 'number' ? d.width : 50
+        let height = typeof d.height === 'number' ? d.height : 50
 
-      filteredDetections.forEach((detection) => {
-        const color = classColors[detection.class.toLowerCase()] || '#00f0ff'
+        if (d.bbox && typeof d.bbox === 'object') {
+          if (typeof d.bbox.x1 === 'number') {
+            x = d.bbox.x1
+            y = d.bbox.y1
+            width = Math.max(10, d.bbox.x2 - d.bbox.x1)
+            height = Math.max(10, d.bbox.y2 - d.bbox.y1)
+          } else if (Array.isArray(d.bbox)) {
+            x = d.bbox[0]
+            y = d.bbox[1]
+            width = Math.max(10, d.bbox[2] - d.bbox[0])
+            height = Math.max(10, d.bbox[3] - d.bbox[1])
+          }
+        }
+        return {
+          ...d,
+          id: d.id || `det-${idx}`,
+          class: cls,
+          confidence: typeof d.confidence === 'number' ? d.confidence : 0.9,
+          x,
+          y,
+          width,
+          height,
+        }
+      })
+
+      const filteredDetections = normalizedDetections.filter((d) => d.confidence >= confidenceThreshold)
+      const fallbackColors = ['#00F0FF', '#FF0055', '#00FF66', '#FFB800', '#BF55EC', '#3399FF']
+
+      filteredDetections.forEach((detection, idx) => {
+        const color = classColors[detection.class.toLowerCase()] || fallbackColors[idx % fallbackColors.length]
         const isHovered = hoveredId === detection.id
-        const lineWidth = isHovered ? 3 : 2
-        const opacity = isHovered ? 1 : 0.7
+        const x = detection.x
+        const y = detection.y
+        const w = detection.width
+        const h = detection.height
 
-        // Draw box
-        ctx.strokeStyle = color
-        ctx.lineWidth = lineWidth
-        ctx.globalAlpha = opacity
-        ctx.strokeRect(detection.x, detection.y, detection.width, detection.height)
-
-        // Draw glow effect
-        ctx.shadowColor = color
-        ctx.shadowBlur = isHovered ? 15 : 8
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 0
-        ctx.strokeRect(detection.x, detection.y, detection.width, detection.height)
-
-        // Reset shadow
-        ctx.shadowBlur = 0
-        ctx.globalAlpha = 1
-
-        // Draw label background
-        const labelText = `${detection.class.toUpperCase()} ${(detection.confidence * 100).toFixed(0)}%`
-        ctx.font = 'bold 12px monospace'
-        const metrics = ctx.measureText(labelText)
-        const labelHeight = 20
-        const labelX = detection.x
-        const labelY = detection.y - labelHeight - 4
-
-        ctx.fillStyle = `${color}40`
-        ctx.fillRect(labelX, labelY, metrics.width + 8, labelHeight)
-
-        // Draw label text
+        // 1. Semi-transparent subtle target area fill
         ctx.fillStyle = color
-        ctx.fillText(labelText, labelX + 4, labelY + 14)
+        ctx.globalAlpha = isHovered ? 0.15 : 0.06
+        ctx.fillRect(x, y, w, h)
+
+        // 2. Main precision boundary frame
+        ctx.strokeStyle = color
+        ctx.lineWidth = isHovered ? 2.5 : 1.5
+        ctx.globalAlpha = isHovered ? 1 : 0.75
+        ctx.strokeRect(x, y, w, h)
+
+        // 3. High-tech tactical corner brackets
+        const cornerLen = Math.min(18, Math.min(w, h) * 0.3)
+        ctx.lineWidth = isHovered ? 3.5 : 2.5
+        ctx.globalAlpha = 1
+        ctx.beginPath()
+        // Top-left
+        ctx.moveTo(x, y + cornerLen); ctx.lineTo(x, y); ctx.lineTo(x + cornerLen, y)
+        // Top-right
+        ctx.moveTo(x + w - cornerLen, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + cornerLen)
+        // Bottom-left
+        ctx.moveTo(x, y + h - cornerLen); ctx.lineTo(x, y + h); ctx.lineTo(x + cornerLen, y + h)
+        // Bottom-right
+        ctx.moveTo(x + w - cornerLen, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - cornerLen)
+        ctx.stroke()
+
+        // 4. Structured compact target tag banner
+        const shortName = detection.class.length > 22 ? detection.class.slice(0, 22).trim() + '…' : detection.class
+        const labelText = `[#0${idx + 1}] ${shortName.toUpperCase()} | ${(detection.confidence * 100).toFixed(0)}%`
+        ctx.font = 'bold 11px monospace'
+        const metrics = ctx.measureText(labelText)
+        const tagWidth = metrics.width + 16
+        const tagHeight = 22
+
+        // Position tag cleanly above or inside box so it never overflows top/left edges
+        const tagX = Math.max(2, Math.min(x, canvas.width - tagWidth - 2))
+        const tagY = y >= tagHeight + 4 ? y - tagHeight - 2 : y + 2
+
+        // Dark glassmorphism background tag box
+        ctx.fillStyle = 'rgba(11, 14, 20, 0.92)'
+        ctx.fillRect(tagX, tagY, tagWidth, tagHeight)
+
+        // Left accent bar
+        ctx.fillStyle = color
+        ctx.fillRect(tagX, tagY, 3, tagHeight)
+
+        // Crisp structured tag text
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillText(labelText, tagX + 8, tagY + 15)
       })
     }
 
@@ -113,7 +167,33 @@ export function DetectionCanvasOverlay({
 
     const scale = canvasRef.current?.width! / rect.width
 
-    const filteredDetections = detections.filter((d) => d.confidence >= confidenceThreshold)
+    const normalizedDetections = detections.map((d: any, idx: number) => {
+      const cls = String(d.class || d.class_name || d.name || 'TARGET')
+      let dx = typeof d.x === 'number' ? d.x : 0
+      let dy = typeof d.y === 'number' ? d.y : 0
+      let dwidth = typeof d.width === 'number' ? d.width : 50
+      let dheight = typeof d.height === 'number' ? d.height : 50
+      if (d.bbox && typeof d.bbox === 'object') {
+        if (typeof d.bbox.x1 === 'number') {
+          dx = d.bbox.x1
+          dy = d.bbox.y1
+          dwidth = Math.max(10, d.bbox.x2 - d.bbox.x1)
+          dheight = Math.max(10, d.bbox.y2 - d.bbox.y1)
+        }
+      }
+      return {
+        ...d,
+        id: d.id || `det-${idx}`,
+        class: cls,
+        confidence: typeof d.confidence === 'number' ? d.confidence : 0.9,
+        x: dx,
+        y: dy,
+        width: dwidth,
+        height: dheight,
+      }
+    })
+
+    const filteredDetections = normalizedDetections.filter((d) => d.confidence >= confidenceThreshold)
     let found = false
 
     for (const detection of filteredDetections) {

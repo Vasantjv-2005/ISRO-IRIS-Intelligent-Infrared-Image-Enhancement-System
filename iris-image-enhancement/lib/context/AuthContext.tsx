@@ -29,11 +29,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Restore session from localStorage
   useEffect(() => {
-    const storedToken = localStorage.getItem('auth_token')
-    const storedUser = localStorage.getItem('auth_user')
+    const storedToken = localStorage.getItem('auth_token') || localStorage.getItem('token')
+    const storedUser = localStorage.getItem('auth_user') || localStorage.getItem('user')
     if (storedToken && storedUser) {
       setToken(storedToken)
-      setUser(JSON.parse(storedUser))
+      document.cookie = `auth_token=${storedToken}; path=/; max-age=86400; SameSite=Lax`
+      document.cookie = `token=${storedToken}; path=/; max-age=86400; SameSite=Lax`
+      try {
+        setUser(JSON.parse(storedUser))
+      } catch {
+        setUser({ email: 'User' } as any)
+      }
     }
     setIsLoading(false)
   }, [])
@@ -43,11 +49,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
     try {
       const response = await authAPI.login({ email, password })
-      const { access_token, user: userData } = response.data
+      const payload = response?.data || response
+      const access_token = payload?.access_token
+      const userData = payload?.user || { email }
       setToken(access_token)
       setUser(userData)
       localStorage.setItem('auth_token', access_token)
+      localStorage.setItem('token', access_token)
       localStorage.setItem('auth_user', JSON.stringify(userData))
+      localStorage.setItem('user', JSON.stringify(userData))
+      document.cookie = `auth_token=${access_token}; path=/; max-age=86400; SameSite=Lax`
+      document.cookie = `token=${access_token}; path=/; max-age=86400; SameSite=Lax`
     } catch (err: any) {
       const message = err.response?.data?.detail || 'Login failed'
       setError(message)
@@ -62,11 +74,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
     try {
       const response = await authAPI.register({ full_name, email, password, confirm_password })
-      const { access_token, user: userData } = response.data
+      const payload = response?.data || response
+      const access_token = payload?.access_token
+      const userData = payload?.user || { email, full_name }
       setToken(access_token)
       setUser(userData)
       localStorage.setItem('auth_token', access_token)
+      localStorage.setItem('token', access_token)
       localStorage.setItem('auth_user', JSON.stringify(userData))
+      localStorage.setItem('user', JSON.stringify(userData))
+      document.cookie = `auth_token=${access_token}; path=/; max-age=86400; SameSite=Lax`
+      document.cookie = `token=${access_token}; path=/; max-age=86400; SameSite=Lax`
     } catch (err: any) {
       const message = err.response?.data?.detail || 'Registration failed'
       setError(message)
@@ -80,7 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     setToken(null)
     localStorage.removeItem('auth_token')
+    localStorage.removeItem('token')
     localStorage.removeItem('auth_user')
+    localStorage.removeItem('user')
+    document.cookie = 'auth_token=; path=/; max-age=0'
+    document.cookie = 'token=; path=/; max-age=0'
   }
 
   return (

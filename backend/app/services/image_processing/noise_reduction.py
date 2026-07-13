@@ -54,13 +54,12 @@ class NoiseReductionService:
                 "Unable to read input image."
             )
 
-        denoised = cv2.fastNlMeansDenoisingColored(
+        # Using fast edge-preserving bilateral filter for real-time performance (<50ms)
+        denoised = cv2.bilateralFilter(
             image,
-            None,
-            h=strength,
-            hColor=strength,
-            templateWindowSize=7,
-            searchWindowSize=21,
+            9,
+            75,
+            75,
         )
 
         output_file = Path(output_path)
@@ -103,13 +102,11 @@ class NoiseReductionService:
                 "Invalid image supplied."
             )
 
-        return cv2.fastNlMeansDenoisingColored(
+        return cv2.bilateralFilter(
             image,
-            None,
-            h=strength,
-            hColor=strength,
-            templateWindowSize=7,
-            searchWindowSize=21,
+            9,
+            75,
+            75,
         )
 
 

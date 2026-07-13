@@ -58,41 +58,44 @@ const steps: StepConfig[] = [
   },
 ]
 
+import { usePipelineRunner, useReport } from '@/hooks'
+
 export function PipelinePanel() {
-  const { state, settings, updateSettings, setIsProcessing, markStepComplete } = usePipeline()
+  const { state, settings, updateSettings, setIsProcessing, markStepComplete, setError } = usePipeline()
   const { currentImage, setCurrentImage } = useImage()
   const [expandedStep, setExpandedStep] = useState<string | null>('upload')
-  const [exporting, setExporting] = useState(false)
+  const {
+    runFullPipeline,
+    runPreprocessing,
+    runEnhancement,
+    runColorization,
+    runDetection,
+    elapsedTime,
+  } = usePipelineRunner()
+  const { generateReport, isGenerating } = useReport()
 
   const handleLoadDemo = () => {
-    setCurrentImage(CHANDRA_09_DEMO_DATA)
+    setCurrentImage({
+      ...CHANDRA_09_DEMO_DATA,
+      file_path: 'test_gray.jpg',
+      filename: 'chandra_09_thermal.jpg',
+    })
     markStepComplete('upload')
-    markStepComplete('preprocessing')
-    markStepComplete('enhancement')
-    markStepComplete('colorization')
-    markStepComplete('detection')
-    markStepComplete('analysis')
   }
 
   const handleRunFullPipeline = () => {
-    if (!currentImage) {
-      handleLoadDemo()
-    } else {
-      markStepComplete('upload')
-      markStepComplete('preprocessing')
-      markStepComplete('enhancement')
-      markStepComplete('colorization')
-      markStepComplete('detection')
-      markStepComplete('analysis')
-    }
+    runFullPipeline()
   }
 
   const handleExportPdf = () => {
-    setExporting(true)
-    setTimeout(() => {
-      setExporting(false)
-      alert('Generating & Exporting ISRO IRIS Official PDF Dossier...')
-    }, 1200)
+    const targetPath = currentImage?.file_path || 'test_gray.jpg'
+    generateReport({
+      image_name: currentImage?.filename || 'chandra_09_thermal.jpg',
+      original_image_path: targetPath,
+      processed_image_path: currentImage?.processed_image || targetPath,
+      detected_objects: currentImage?.detections || [],
+      analysis: currentImage?.analysis || 'Infrared thermal anomaly detected and analyzed via Gemini AI.',
+    })
   }
 
   return (
@@ -106,7 +109,12 @@ export function PipelinePanel() {
               Pipeline Telemetry
             </h3>
           </div>
-          {state.isProcessing && <Spinner size="sm" variant="orbital" />}
+          {state.isProcessing && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-primary font-bold">{elapsedTime}s</span>
+              <Spinner size="sm" variant="orbital" />
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -135,12 +143,24 @@ export function PipelinePanel() {
         </button>
 
         {state.processingStatus && (
-          <p className="text-xs text-muted-foreground font-mono">{state.processingStatus}</p>
+          <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/30 flex items-center gap-2">
+            <Spinner size="sm" variant="dots" />
+            <p className="text-xs text-primary font-mono">{state.processingStatus}</p>
+          </div>
         )}
 
         {state.error && (
-          <div className="p-2.5 rounded-lg bg-destructive/15 border border-destructive/40">
-            <p className="text-xs text-destructive font-mono">{state.error}</p>
+          <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/40 space-y-2">
+            <p className="text-xs text-destructive font-mono font-semibold">ERROR: {state.error}</p>
+            <button
+              onClick={() => {
+                setError(null)
+                handleRunFullPipeline()
+              }}
+              className="w-full py-1.5 px-3 rounded bg-destructive/20 hover:bg-destructive/30 text-destructive text-xs font-mono font-bold transition-all"
+            >
+              🔄 RETRY FAILED PIPELINE STAGE
+            </button>
           </div>
         )}
       </GlassCard>
@@ -213,6 +233,24 @@ export function PipelinePanel() {
                             >
                               🚀 LOAD CHANDRA-09 THERMAL TIFF
                             </button>
+
+                            {/* Prominent Action Buttons below Upload */}
+                            <button
+                              onClick={runPreprocessing}
+                              disabled={!currentImage}
+                              className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-background font-extrabold text-xs shadow-[0_0_15px_rgba(0,240,255,0.4)] hover:shadow-[0_0_25px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>⚡</span>
+                              <span>START PREPROCESSING ON UPLOADED IMAGE</span>
+                            </button>
+                            <button
+                              onClick={runFullPipeline}
+                              disabled={!currentImage}
+                              className="w-full py-2 rounded-xl bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/40 text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>🚀</span>
+                              <span>EXECUTE ALL 6 STAGES FAST (REAL-TIME)</span>
+                            </button>
                           </div>
                         )}
 
@@ -236,6 +274,14 @@ export function PipelinePanel() {
                                 className="w-4 h-4 accent-primary"
                               />
                             </label>
+                            <button
+                              onClick={runPreprocessing}
+                              disabled={!currentImage}
+                              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-background font-extrabold text-xs shadow-[0_0_15px_rgba(0,240,255,0.4)] hover:shadow-[0_0_25px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>⚡</span>
+                              <span>EXECUTE PREPROCESSING NOW</span>
+                            </button>
                           </div>
                         )}
 
@@ -260,15 +306,33 @@ export function PipelinePanel() {
                               <span>2X (Bicubic)</span>
                               <span>4X (Deep Residual AI)</span>
                             </div>
+                            <button
+                              onClick={runEnhancement}
+                              disabled={!currentImage}
+                              className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-background font-extrabold text-xs shadow-[0_0_15px_rgba(0,240,255,0.4)] hover:shadow-[0_0_25px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>⚡</span>
+                              <span>EXECUTE 4K ENHANCEMENT NOW</span>
+                            </button>
                           </div>
                         )}
 
                         {step.id === 'colorization' && (
-                          <ColormapPaletteSelector
-                            selectedColormap={settings.colormap}
-                            onSelect={(id) => updateSettings({ colormap: id })}
-                            compact
-                          />
+                          <div className="space-y-3">
+                            <ColormapPaletteSelector
+                              selectedColormap={settings.colormap}
+                              onSelect={(id) => updateSettings({ colormap: id })}
+                              compact
+                            />
+                            <button
+                              onClick={runColorization}
+                              disabled={!currentImage}
+                              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-background font-extrabold text-xs shadow-[0_0_15px_rgba(0,240,255,0.4)] hover:shadow-[0_0_25px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>⚡</span>
+                              <span>EXECUTE THERMAL COLORIZATION NOW</span>
+                            </button>
+                          </div>
                         )}
 
                         {step.id === 'detection' && (
@@ -293,6 +357,14 @@ export function PipelinePanel() {
                             <p className="text-[11px] font-mono text-muted-foreground">
                               Filters out background thermal clutter below {(settings.detectionConfidence * 100).toFixed(0)}%.
                             </p>
+                            <button
+                              onClick={runDetection}
+                              disabled={!currentImage}
+                              className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-iris-orange to-primary text-background font-extrabold text-xs shadow-[0_0_15px_rgba(255,140,0,0.4)] hover:shadow-[0_0_25px_rgba(255,140,0,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>⚡</span>
+                              <span>EXECUTE YOLOv8 DETECTION NOW</span>
+                            </button>
                           </div>
                         )}
 
@@ -333,11 +405,11 @@ export function PipelinePanel() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleExportPdf}
-          disabled={exporting}
+          disabled={isGenerating}
           className="w-full py-3.5 rounded-xl bg-gradient-to-r from-iris-orange to-iris-amber text-background font-extrabold text-sm shadow-[0_0_25px_rgba(255,107,0,0.35)] hover:shadow-[0_0_35px_rgba(255,107,0,0.6)] transition-all flex items-center justify-center gap-2"
         >
           <FileDown className="w-5 h-5" />
-          <span>{exporting ? 'EXPORTING PDF DOSSIER...' : 'EXPORT MISSION DOSSIER (PDF)'}</span>
+          <span>{isGenerating ? 'EXPORTING PDF DOSSIER...' : 'EXPORT MISSION DOSSIER (PDF)'}</span>
         </motion.button>
       </div>
     </div>

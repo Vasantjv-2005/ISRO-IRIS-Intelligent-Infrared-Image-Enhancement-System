@@ -23,9 +23,10 @@ router = APIRouter(
 )
 async def download_file(
     file_path: str,
+    inline: bool = False,
 ):
     """
-    Download a file from the server.
+    Download or view a file from the server.
     """
     try:
         file_info = download_controller.get_file(file_path)
@@ -34,6 +35,7 @@ async def download_file(
             path=file_info["path"],
             filename=file_info["filename"],
             media_type=file_info["mime_type"],
+            content_disposition_type="inline" if inline else "attachment",
         )
     except FileNotFoundError as exc:
         raise HTTPException(

@@ -47,7 +47,7 @@ apiClient.interceptors.response.use(
 )
 
 // Helper to convert any backend file_path into an accessible download/preview URL
-export function getFileDownloadUrl(filePath: string | undefined | null): string {
+export function getFileDownloadUrl(filePath: string | undefined | null, disableCache = false): string {
   if (!filePath) return ''
   if (
     filePath.startsWith('http://') ||
@@ -57,7 +57,8 @@ export function getFileDownloadUrl(filePath: string | undefined | null): string 
   ) {
     return filePath
   }
-  return `${API_BASE_URL}/download/?file_path=${encodeURIComponent(filePath)}`
+  const base = `${API_BASE_URL}/download/?file_path=${encodeURIComponent(filePath)}`
+  return disableCache ? `${base}&ts=${Date.now()}` : base
 }
 
 // System API for Header Telemetry & Diagnostics

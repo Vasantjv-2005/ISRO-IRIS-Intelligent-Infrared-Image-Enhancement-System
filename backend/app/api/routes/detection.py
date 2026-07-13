@@ -44,6 +44,7 @@ async def detect_objects(
             success=True,
             image_path=result["image_path"],
             output_directory=result["output_directory"],
+            detected_image_path=result.get("detected_image_path", result.get("output_path")),
             total_objects=result["total_objects"],
             detections=result["detections"],
             message="Object detection completed successfully.",
@@ -94,6 +95,7 @@ async def save_detected_image(payload: dict) -> dict:
         record = {
             "filename": filename,
             "saved_path": str(dest_file),
+            "detected_path": str(dest_file),
             "detections": detections,
             "total_objects": len(detections),
             "saved_at": datetime.utcnow().isoformat(),
@@ -109,6 +111,7 @@ async def save_detected_image(payload: dict) -> dict:
         return {
             "success": True,
             "saved_path": str(dest_file),
+            "detected_image_path": str(dest_file),
             "message": "Saved detected image to detections folder and MongoDB successfully.",
         }
     except Exception as exc:

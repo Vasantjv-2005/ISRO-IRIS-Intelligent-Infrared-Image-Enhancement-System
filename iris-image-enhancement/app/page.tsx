@@ -21,7 +21,7 @@ function IRISCommandCenter() {
       <Header />
 
       <main className="pt-20 pb-12">
-        <div className="container mx-auto px-4 max-w-7xl">
+        <div className="mx-auto px-4 max-w-[1440px]">
           <AnimatePresence mode="wait">
             {activeView === 'workspace' && (
               <motion.div
@@ -50,14 +50,14 @@ function IRISCommandCenter() {
                 {/* Main Grid Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   {/* Left Panel - Controls */}
-                  <div className="lg:col-span-4 xl:col-span-3">
+                  <div className="lg:col-span-3 xl:col-span-3">
                     <div className="sticky top-24">
                       <PipelinePanel />
                     </div>
                   </div>
 
-                  {/* Right Panel - Visualization Viewport */}
-                  <div className="lg:col-span-8 xl:col-span-9">
+                  {/* Right Panel - Visualization Viewport (NEURAL VISUALIZATION HUD) */}
+                  <div className="lg:col-span-9 xl:col-span-9">
                     <WorkspaceViewport />
                   </div>
                 </div>

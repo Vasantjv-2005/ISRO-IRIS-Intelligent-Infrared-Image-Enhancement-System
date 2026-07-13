@@ -70,6 +70,8 @@ class DetectionResponseSchema(BaseModel):
 
     output_directory: str
 
+    detected_image_path: str | None = None
+
     total_objects: int
 
     detections: list[DetectionObjectSchema]

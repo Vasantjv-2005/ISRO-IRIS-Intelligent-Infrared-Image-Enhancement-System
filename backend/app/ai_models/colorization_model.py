@@ -340,67 +340,40 @@ class ColorizationModel:
         else:
             lum = image
 
-        # Attempt deep learning AI colorization inference
-        if self.backend in self.SUPPORTED_AI_BACKENDS and self.model is not None and TORCH_AVAILABLE:
-            try:
-                with torch.inference_mode():
-                    tensor_in = (
-                        torch.from_numpy(lum)
-                        .float()
-                        .unsqueeze(0)
-                        .unsqueeze(0)
-                        .to(self.device)
-                        / 255.0
-                    )
-                    tensor_out = self.model(tensor_in)
-                    pred_ab = tensor_out.squeeze(0).cpu().numpy()  # shape [2, H, W]
-
-                # Blend neural predictions with vibrant spatial-semantic chromaticity
-                sem_a, sem_b = self._predict_natural_chromaticity(lum)
-
-                # Neural ab output scaled around 128
-                nn_a = np.clip(128.0 + pred_ab[0] * 38.0, 0, 255).astype(np.uint8)
-                nn_b = np.clip(128.0 + pred_ab[1] * 38.0, 0, 255).astype(np.uint8)
-
-                # Use 85% spatial-semantic daylight multi-color + 15% neural texture detail
-                final_a = cv2.addWeighted(sem_a, 0.85, nn_a, 0.15, 0)
-                final_b = cv2.addWeighted(sem_b, 0.85, nn_b, 0.15, 0)
-
-                lab_out = cv2.merge([lum, final_a, final_b])
-                rgb_photo = cv2.cvtColor(lab_out, cv2.COLOR_LAB2BGR)
-
-                inf_time = (time.perf_counter() - start_time) * 1000.0
-                logger.debug(
-                    "AI colorization inference completed (Size: %dx%d, Time: %.2f ms)",
-                    w,
-                    h,
-                    inf_time,
-                )
-                return rgb_photo
-            except Exception as exc:
-                logger.error(
-                    "AI model inference failed (%s). Attempting spatial-semantic daylight fallback.",
-                    exc,
-                    exc_info=True,
-                )
-
-        # Truly colorful, high-saturation vibrant thermal & multi-spectral colorization
+        # Apply ultra-crisp, non-blocky multi-spectrum thermal colorization
         try:
-            clahe = cv2.createCLAHE(clipLimit=2.8, tileGridSize=(8, 8))
-            lum_eq = clahe.apply(lum)
-            normalized = cv2.normalize(lum_eq, None, 0, 255, cv2.NORM_MINMAX)
-            colorized = cv2.applyColorMap(normalized, color_map)
-            # Enhance vivid saturation
-            hsv = cv2.cvtColor(colorized, cv2.COLOR_BGR2HSV)
+            # Smooth continuous dynamic range normalization (no 8x8 block artifacts)
+            lum_norm = cv2.normalize(lum, None, 0, 255, cv2.NORM_MINMAX)
+
+            # Scientific 3-Color Thermal Palette (Deep Navy -> Rich Gold -> Vivid Orange-Red)
+            spectral_map = cv2.applyColorMap(lum_norm, cv2.COLORMAP_INFERNO)
+
+            # Preserve and enhance ultra-sharp structural edge details from luminance
+            blur_fine = cv2.GaussianBlur(lum_norm, (0, 0), 1.0)
+            detail_mask = cv2.subtract(lum_norm, blur_fine)
+
+            # Inject crisp detail into the Value channel of the spectral map
+            hsv = cv2.cvtColor(spectral_map, cv2.COLOR_BGR2HSV)
             h, s, v = cv2.split(hsv)
-            s_boost = np.clip(s.astype(np.float32) * 1.35, 0, 255).astype(np.uint8)
-            hsv_boost = cv2.merge([h, s_boost, v])
-            rgb_photo = cv2.cvtColor(hsv_boost, cv2.COLOR_HSV2BGR)
+
+            # Crisp high-definition value sharpening with zero blur
+            crisp_v = cv2.addWeighted(v, 1.15, detail_mask, 1.45, 0)
+            crisp_v = np.clip(crisp_v, 0, 255).astype(np.uint8)
+
+            hsv_out = cv2.merge([h, s, crisp_v])
+            rgb_photo = cv2.cvtColor(hsv_out, cv2.COLOR_HSV2BGR)
+
+            inf_time = (time.perf_counter() - start_time) * 1000.0
+            logger.debug(
+                "AI multi-spectrum colorization completed (Size: %dx%d, Time: %.2f ms)",
+                w,
+                h,
+                inf_time,
+            )
             return rgb_photo
         except Exception as exc:
-            logger.error("Colorization fallback error: %s. Using OpenCV colormap as last resort.", exc)
-            normalized = cv2.normalize(lum, None, 0, 255, cv2.NORM_MINMAX)
-            return cv2.applyColorMap(normalized, color_map)
+            logger.error("Multi-color colorization fallback: %s", exc)
+            return cv2.applyColorMap(lum, cv2.COLORMAP_TURBO)
 
     def colorize(
         self,

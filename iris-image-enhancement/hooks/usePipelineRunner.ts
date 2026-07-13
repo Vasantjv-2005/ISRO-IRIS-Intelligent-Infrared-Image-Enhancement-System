@@ -119,10 +119,10 @@ export function usePipelineRunner() {
         filename,
         file_path: targetPath,
         original_image: targetPath,
-        preprocessed_image: prepRes.preprocessed_image || prepRes.output_path || targetPath,
+        preprocessed_image: (prepRes as any).preprocessed_image || (prepRes as any).output_path || targetPath,
         enhanced_image: enhancedImgPath,
         colorized_image: colorizedImgPath,
-        detected_image: detectRes.output_path || detectRes.detected_image || enhancedImgPath,
+        detected_image: (detectRes as any).detected_image_path || (detectRes as any).output_path || (detectRes as any).detected_image || enhancedImgPath,
         processed_image: colorizedImgPath || enhancedImgPath,
         report_path: reportPath,
         detections: detectedObjects,
@@ -161,7 +161,7 @@ export function usePipelineRunner() {
         output_directory: 'outputs/preprocessing',
         apply_crop: false,
       })
-      const outputImg = prepRes.preprocessed_image || prepRes.output_image || prepRes.enhanced_image || targetPath
+      const outputImg = (prepRes as any).preprocessed_image || (prepRes as any).output_image || (prepRes as any).enhanced_image || targetPath
       markStepComplete('preprocessing')
       updateStep('enhancement')
       setCurrentImage({

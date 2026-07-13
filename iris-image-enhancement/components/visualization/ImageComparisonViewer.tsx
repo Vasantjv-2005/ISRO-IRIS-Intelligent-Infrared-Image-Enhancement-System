@@ -72,19 +72,19 @@ export function ImageComparisonViewer({
   }
 
   return (
-    <GlassCard className="overflow-hidden">
+    <GlassCard className="overflow-hidden border-primary/40 bg-black">
       <div
         ref={containerRef}
-        className="relative aspect-video bg-background cursor-col-resize group"
+        className="relative w-full min-h-[480px] max-h-[60vh] bg-black cursor-col-resize group"
         onMouseDown={handleMouseDown}
         onTouchStart={handleMouseDown}
       >
         {/* After Image (Background) */}
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 flex items-center justify-center">
           {afterImage && (
-            <img src={afterImage} alt={afterLabel} className="w-full h-full object-cover" crossOrigin="anonymous" />
+            <img src={afterImage} alt={afterLabel} className="w-full h-full object-contain" crossOrigin="anonymous" />
           )}
-          <div className="absolute bottom-4 right-4">
+          <div className="absolute bottom-4 right-4 z-10">
             <div className="px-3 py-1.5 rounded-lg bg-background/80 backdrop-blur-sm border border-border">
               <p className="text-xs font-medium text-foreground">{afterLabel}</p>
             </div>
@@ -93,10 +93,12 @@ export function ImageComparisonViewer({
 
         {/* Before Image (Clipped) */}
         <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPosition}%` }}>
-          {beforeImage && (
-            <img src={beforeImage} alt={beforeLabel} className="w-screen h-full object-cover" crossOrigin="anonymous" />
-          )}
-          <div className="absolute bottom-4 left-4">
+          <div className="w-full h-full flex items-center justify-center">
+            {beforeImage && (
+              <img src={beforeImage} alt={beforeLabel} className="w-full h-full object-contain" crossOrigin="anonymous" />
+            )}
+          </div>
+          <div className="absolute bottom-4 left-4 z-10">
             <div className="px-3 py-1.5 rounded-lg bg-background/80 backdrop-blur-sm border border-border">
               <p className="text-xs font-medium text-foreground">{beforeLabel}</p>
             </div>

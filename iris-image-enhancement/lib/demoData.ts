@@ -3,8 +3,8 @@ import { ImageData } from './context/ImageContext'
 // Generate stunning high-tech SVG thermal imagery data URIs for demo / instant testing
 export function generateThermalSvgUrl(type: 'raw' | 'enhanced' | 'inferno' | 'magma' | 'plasma' | 'viridis' | 'jet' | 'rainbow'): string {
   const isRaw = type === 'raw'
-  const filterBlur = isRaw ? '2.5' : '0.4'
-  const noiseOpacity = isRaw ? '0.35' : '0.08'
+  const filterBlur = isRaw ? '1.5' : '0'
+  const noiseOpacity = isRaw ? '0.35' : '0.04'
 
   let color1 = '#0F1420'
   let color2 = '#1E293B'
@@ -23,7 +23,7 @@ export function generateThermalSvgUrl(type: 'raw' | 'enhanced' | 'inferno' | 'ma
   } else if (type === 'jet') {
     color1 = '#0000FF'; color2 = '#00FFFF'; hotColor1 = '#FFFF00'; hotColor2 = '#FF0000'
   } else if (type === 'rainbow') {
-    color1 = '#8A2BE2'; color2 = '#00FFFF'; hotColor1 = '#00FF00'; hotColor2 = '#FF4500'
+    color1 = '#091026'; color2 = '#D4881A'; hotColor1 = '#E85F1C'; hotColor2 = '#FF2A14'
   }
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
@@ -106,44 +106,54 @@ export const CHANDRA_09_DEMO_DATA: ImageData = {
   preprocessed_image: generateThermalSvgUrl('raw'),
   enhanced_image: generateThermalSvgUrl('enhanced'),
   colorized_image: generateThermalSvgUrl('rainbow'),
-  detected_image: generateThermalSvgUrl('enhanced'),
+  detected_image: 'outputs/detections/enhanced_ai.jpg',
   processed_image: generateThermalSvgUrl('enhanced'),
+  report_path: 'reports/CHANDRA_09_FULL_MISSION_REPORT.pdf',
   detections: [
     {
       id: 'det-101',
-      class: 'thermal-anomaly',
-      confidence: 0.96,
-      x: 130,
-      y: 100,
-      width: 220,
-      height: 155,
+      class: 'SPACECRAFT MAIN BUS',
+      confidence: 0.942,
+      x: 0.52,
+      y: 0.45,
+      width: 0.22,
+      height: 0.18,
     },
     {
       id: 'det-102',
-      class: 'structure',
-      confidence: 0.91,
-      x: 470,
-      y: 230,
-      width: 190,
-      height: 145,
+      class: 'SOLAR ARRAY WING (PORT)',
+      confidence: 0.918,
+      x: 0.27,
+      y: 0.52,
+      width: 0.25,
+      height: 0.24,
     },
     {
       id: 'det-103',
-      class: 'vehicle',
-      confidence: 0.89,
-      x: 310,
-      y: 330,
-      width: 130,
-      height: 90,
+      class: 'SOLAR ARRAY WING (STARBOARD)',
+      confidence: 0.895,
+      x: 0.53,
+      y: 0.14,
+      width: 0.14,
+      height: 0.33,
     },
     {
       id: 'det-104',
-      class: 'vessel',
-      confidence: 0.86,
-      x: 80,
-      y: 340,
-      width: 140,
-      height: 100,
+      class: 'OPTICAL SENSOR APERTURE',
+      confidence: 0.885,
+      x: 0.65,
+      y: 0.50,
+      width: 0.08,
+      height: 0.09,
+    },
+    {
+      id: 'det-105',
+      class: 'THERMAL RADIATOR PANEL',
+      confidence: 0.867,
+      x: 0.61,
+      y: 0.61,
+      width: 0.23,
+      height: 0.25,
     },
   ],
   analysis: `🎯 ISRO CHANDRA-09 MULTIMODAL THERMAL SCENE INTELLIGENCE BRIEFING

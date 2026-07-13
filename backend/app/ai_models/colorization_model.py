@@ -384,11 +384,18 @@ class ColorizationModel:
                     exc_info=True,
                 )
 
-        # High-fidelity natural daylight photograph fallback (No false thermal colors)
+        # Truly colorful, high-saturation vibrant thermal & multi-spectral colorization
         try:
-            sem_a, sem_b = self._predict_natural_chromaticity(lum)
-            lab_out = cv2.merge([lum, sem_a, sem_b])
-            rgb_photo = cv2.cvtColor(lab_out, cv2.COLOR_LAB2BGR)
+            clahe = cv2.createCLAHE(clipLimit=2.8, tileGridSize=(8, 8))
+            lum_eq = clahe.apply(lum)
+            normalized = cv2.normalize(lum_eq, None, 0, 255, cv2.NORM_MINMAX)
+            colorized = cv2.applyColorMap(normalized, color_map)
+            # Enhance vivid saturation
+            hsv = cv2.cvtColor(colorized, cv2.COLOR_BGR2HSV)
+            h, s, v = cv2.split(hsv)
+            s_boost = np.clip(s.astype(np.float32) * 1.35, 0, 255).astype(np.uint8)
+            hsv_boost = cv2.merge([h, s_boost, v])
+            rgb_photo = cv2.cvtColor(hsv_boost, cv2.COLOR_HSV2BGR)
             return rgb_photo
         except Exception as exc:
             logger.error("Colorization fallback error: %s. Using OpenCV colormap as last resort.", exc)

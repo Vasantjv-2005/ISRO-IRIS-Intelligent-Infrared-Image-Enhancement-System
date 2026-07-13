@@ -119,7 +119,12 @@ export function usePipelineRunner() {
         filename,
         file_path: targetPath,
         original_image: targetPath,
+        preprocessed_image: prepRes.preprocessed_image || prepRes.output_path || targetPath,
+        enhanced_image: enhancedImgPath,
+        colorized_image: colorizedImgPath,
+        detected_image: detectRes.output_path || detectRes.detected_image || enhancedImgPath,
         processed_image: colorizedImgPath || enhancedImgPath,
+        report_path: reportPath,
         detections: detectedObjects,
         analysis: analysisText,
         metrics: {

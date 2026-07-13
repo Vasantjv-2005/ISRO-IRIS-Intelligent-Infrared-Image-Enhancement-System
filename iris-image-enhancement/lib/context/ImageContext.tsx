@@ -10,7 +10,12 @@ export interface ImageData {
   channels?: number
   format?: string
   original_image?: string
+  preprocessed_image?: string
+  enhanced_image?: string
+  colorized_image?: string
+  detected_image?: string
   processed_image?: string
+  report_path?: string
   detections?: any[]
   analysis?: string
   metrics?: {

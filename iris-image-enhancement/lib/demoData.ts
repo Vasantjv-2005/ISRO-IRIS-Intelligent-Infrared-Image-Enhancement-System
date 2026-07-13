@@ -103,6 +103,10 @@ export const CHANDRA_09_DEMO_DATA: ImageData = {
   channels: 1,
   format: '16-bit Radiometric TIFF',
   original_image: generateThermalSvgUrl('raw'),
+  preprocessed_image: generateThermalSvgUrl('raw'),
+  enhanced_image: generateThermalSvgUrl('enhanced'),
+  colorized_image: generateThermalSvgUrl('rainbow'),
+  detected_image: generateThermalSvgUrl('enhanced'),
   processed_image: generateThermalSvgUrl('enhanced'),
   detections: [
     {

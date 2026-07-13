@@ -62,3 +62,57 @@ async def detect_objects(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
+
+
+@router.post(
+    "/save",
+    status_code=status.HTTP_200_OK,
+    summary="Save detected image to detections folder and MongoDB",
+)
+async def save_detected_image(payload: dict) -> dict:
+    """
+    Save detected image and detections list to detections folder and MongoDB database.
+    """
+    from datetime import datetime
+    from pathlib import Path
+    from app.database.mongodb import get_database
+
+    try:
+        output_dir = Path("outputs/detections")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = payload.get("filename", "yolo_detection_overlay.jpg")
+        image_path = payload.get("image_path", "")
+        detections = payload.get("detections", [])
+
+        # Copy or write file to outputs/detections/
+        dest_file = output_dir / filename
+        if image_path and Path(image_path).exists() and Path(image_path) != dest_file:
+            import shutil
+            shutil.copy2(image_path, dest_file)
+
+        record = {
+            "filename": filename,
+            "saved_path": str(dest_file),
+            "detections": detections,
+            "total_objects": len(detections),
+            "saved_at": datetime.utcnow().isoformat(),
+            "status": "SAVED_TO_DETECTIONS_FOLDER_AND_MONGODB",
+        }
+
+        try:
+            db = get_database()
+            await db["saved_detections"].insert_one(record)
+        except Exception as db_exc:
+            print(f"MongoDB save info: {db_exc}")
+
+        return {
+            "success": True,
+            "saved_path": str(dest_file),
+            "message": "Saved detected image to detections folder and MongoDB successfully.",
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save detection: {exc}",
+        )

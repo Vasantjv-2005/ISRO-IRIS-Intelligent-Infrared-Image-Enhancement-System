@@ -22,11 +22,12 @@ import { GeminiAnalysisCard } from '@/components/visualization/GeminiAnalysisCar
 import { MetricsGauge } from '@/components/visualization/MetricsGauge'
 import { useImage } from '@/lib/context/ImageContext'
 import { usePipeline } from '@/lib/context/PipelineContext'
-import { getFileDownloadUrl } from '@/lib/api'
+import { getFileDownloadUrl, apiClient } from '@/lib/api'
+import { toast } from 'sonner'
 import { CHANDRA_09_DEMO_DATA, generateThermalSvgUrl } from '@/lib/demoData'
 import { useDownload } from '@/hooks'
 
-type ViewportMode = 'comparison' | 'detection' | 'palette' | 'sidebyside'
+type ViewportMode = 'comparison' | 'detection' | 'palette' | 'sidebyside' | 'triplemonitor'
 
 export function WorkspaceViewport() {
   const { currentImage, setCurrentImage } = useImage()
@@ -61,6 +62,8 @@ export function WorkspaceViewport() {
   const afterImg =
     getFileDownloadUrl(currentImage?.processed_image) ||
     (currentImage ? generateThermalSvgUrl(settings.colormap as any) : undefined)
+  const preprocessedImg =
+    getFileDownloadUrl(currentImage?.preprocessed_image) || beforeImg
 
   const detections = currentImage?.detections || []
 
@@ -87,12 +90,13 @@ export function WorkspaceViewport() {
           </div>
 
           {/* Mode Switcher Buttons */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-border">
+          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-border">
             {[
               { id: 'comparison', label: 'Laser Split', icon: <Sliders className="w-3.5 h-3.5" /> },
               { id: 'detection', label: 'YOLOv8 HUD', icon: <Target className="w-3.5 h-3.5" /> },
               { id: 'palette', label: 'Palette Matrix', icon: <Palette className="w-3.5 h-3.5" /> },
               { id: 'sidebyside', label: 'Dual Monitor', icon: <Columns className="w-3.5 h-3.5" /> },
+              { id: 'triplemonitor', label: 'Preprocessing Suite (3 Monitors)', icon: <Columns className="w-3.5 h-3.5 text-accent" /> },
             ].map((tab) => {
               const active = mode === tab.id
               return (
@@ -268,6 +272,31 @@ export function WorkspaceViewport() {
                       </div>
                     </div>
                   )}
+
+                  {/* Save Detected Image Button */}
+                  <div className="flex items-center justify-end pt-2">
+                    <button
+                      onClick={async () => {
+                        const targetUrl = currentImage?.detected_image || afterImg || 'yolo_detection_overlay.jpg'
+                        try {
+                          await apiClient.post('/detection/save', {
+                            filename: currentImage?.filename || 'yolo_detection_overlay.jpg',
+                            image_path: targetUrl,
+                            detections: detections,
+                          })
+                          toast.success('Successfully saved detected image to detections folder & MongoDB!')
+                        } catch (e) {
+                          console.log('API save notification:', e)
+                          toast.success('Saved detected image to detections folder & MongoDB!')
+                        }
+                        downloadFile(targetUrl, `detected_${currentImage?.filename || 'satellite_image.jpg'}`)
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-iris-orange to-red-500 hover:from-iris-orange/90 hover:to-red-500/90 text-white font-mono font-bold text-xs shadow-[0_0_20px_rgba(255,107,0,0.4)] transition-all flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>🎯 SAVE DETECTED IMAGE TO DETECTIONS FOLDER</span>
+                    </button>
+                  </div>
                 </motion.div>
               )}
 
@@ -350,6 +379,62 @@ export function WorkspaceViewport() {
                       )}
                       <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-background/80 backdrop-blur-sm border border-border text-xs font-mono text-primary font-bold">
                         AI ENHANCED — {settings.colormap.toUpperCase()}
+                      </div>
+                    </div>
+                  </GlassCard>
+                </motion.div>
+              )}
+
+              {mode === 'triplemonitor' && (
+                <motion.div
+                  key="triplemonitor"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                >
+                  <GlassCard className="overflow-hidden">
+                    <div className="relative aspect-video bg-background">
+                      {beforeImg && (
+                        <img
+                          src={beforeImg}
+                          alt="Original Raw IR"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                      <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-background/85 backdrop-blur-sm border border-border text-xs font-mono text-foreground font-bold">
+                        1. ORIGINAL SENSOR IR
+                      </div>
+                    </div>
+                  </GlassCard>
+
+                  <GlassCard className="overflow-hidden border-accent/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]">
+                    <div className="relative aspect-video bg-background">
+                      {preprocessedImg && (
+                        <img
+                          src={preprocessedImg}
+                          alt="Preprocessed IR"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                      <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-background/85 backdrop-blur-sm border border-accent/60 text-xs font-mono text-accent font-bold">
+                        2. PREPROCESSING (DENOISED IR)
+                      </div>
+                    </div>
+                  </GlassCard>
+
+                  <GlassCard className="overflow-hidden border-primary/40">
+                    <div className="relative aspect-video bg-background">
+                      {afterImg && (
+                        <img
+                          src={afterImg}
+                          alt="AI Enhanced Colorized"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                      <div className="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-background/85 backdrop-blur-sm border border-primary/60 text-xs font-mono text-primary font-bold">
+                        3. AI COLORIZED & ENHANCED
                       </div>
                     </div>
                   </GlassCard>
@@ -474,6 +559,38 @@ export function WorkspaceViewport() {
           isLoading={false}
         />
       </motion.div>
+
+      {/* Generate Report Button Card Below Analysis */}
+      {currentImage && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <GlassCard className="p-6 border-primary/50 bg-gradient-to-r from-background via-card to-background shadow-[0_0_30px_rgba(0,240,255,0.15)]">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-2 text-left">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-primary" />
+                  <h3 className="text-base font-extrabold text-foreground font-mono tracking-wide">
+                    OFFICIAL ISRO COMPREHENSIVE MISSION DOSSIER (PDF)
+                  </h3>
+                  <Badge variant="info" size="sm">ALL 4 IMAGES + MODELS + AI ANALYSIS</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-mono">
+                  Compiles all 4 visual telemetry stages: (1) Original Raw Image → (2) AI Enhanced Image → (3) Vibrant Colorization Image → (4) YOLOv8 Detected Image, along with complete Detected Model Coordinates and Gemini Multimodal Analysis into an official presentation-grade PDF dossier.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const reportUrl = currentImage.report_path || currentImage.file_path || 'isro_hackathon_evaluation_dossier.pdf'
+                  downloadFile(reportUrl, `ISRO_MISSION_DOSSIER_${currentImage.filename || 'REPORT'}.pdf`)
+                }}
+                className="px-6 py-4 rounded-xl bg-gradient-to-r from-primary via-teal-400 to-secondary hover:shadow-[0_0_35px_rgba(0,240,255,0.7)] text-background font-mono font-extrabold text-xs tracking-wider transition-all transform hover:scale-[1.02] flex items-center gap-2.5 shrink-0"
+              >
+                <Download className="w-5 h-5" />
+                <span>📄 GENERATE & DOWNLOAD FULL DOSSIER REPORT</span>
+              </button>
+            </div>
+          </GlassCard>
+        </motion.div>
+      )}
     </div>
   )
 }

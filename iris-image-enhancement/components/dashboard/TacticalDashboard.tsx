@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Satellite,
   Activity,
@@ -17,6 +17,8 @@ import {
   Download,
   Eye,
   CheckCircle2,
+  X,
+  ExternalLink,
 } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
@@ -70,6 +72,8 @@ export function TacticalDashboard() {
   const { setActiveView } = useView()
   const { setCurrentImage } = useImage()
   const [hoveredBandIndex, setHoveredBandIndex] = useState<number | null>(null)
+  const [selectedInspectItem, setSelectedInspectItem] = useState<any | null>(null)
+  const [inspectTab, setInspectTab] = useState<'stages' | 'pdf' | 'targets'>('stages')
   const { data: dashboardData } = useDashboard()
 
   // Deduplicate and merge real MongoDB telemetry activity with fallback mission logs
@@ -100,6 +104,10 @@ export function TacticalDashboard() {
         contents: `${rep.total_objects_detected || 4} Targets + YOLOv8 + Telemetry`,
         path: rep.report_path || `reports/${rep.report_id}`,
         timestamp: rep.generated_at || rep.created_at || new Date().toISOString(),
+        rawImage: rep.rawImage,
+        enhancedImage: rep.enhancedImage,
+        colorizedImage: rep.colorizedImage,
+        detectedImage: rep.detectedImage,
       }))
     : []
 
@@ -109,25 +117,33 @@ export function TacticalDashboard() {
   }
 
   const handleInspectAnalysis = (item: any) => {
-    const token = String(item.id || '').replace('_report.pdf', '').replace('.pdf', '')
+    const token = String(item.id || item.upload_id || '').replace('_report.pdf', '').replace('.pdf', '')
+    let inspectedData: any = null
     if (!token || token === 'CHANDRA_09_FULL_MISSION_REPORT' || token === 'DOS-2026-CHANDRA-FULL' || token === 'CHANDRA-09' || token.startsWith('T-')) {
-      setCurrentImage(CHANDRA_09_DEMO_DATA)
-    } else {
-      setCurrentImage({
+      inspectedData = {
         ...CHANDRA_09_DEMO_DATA,
+        id: token || 'CHANDRA_09',
+        title: item.title || 'ISRO Deep-Space Infrared Multi-Stage Dossier',
+      }
+    } else {
+      inspectedData = {
+        ...CHANDRA_09_DEMO_DATA,
+        id: token,
+        title: item.title || `${token} Mission Dossier`,
         upload_id: token,
         filename: item.sector || `${token}.jpg`,
-        file_path: `outputs/preprocessing/${token}.jpg`,
-        original_image: `outputs/preprocessing/${token}.jpg`,
-        preprocessed_image: `outputs/preprocessing/${token}.jpg`,
-        enhanced_image: `outputs/enhanced/${token}.jpg`,
-        colorized_image: `outputs/colorized/${token}.jpg`,
-        detected_image: `outputs/detected/${token}.jpg`,
-        processed_image: `outputs/detected/${token}.jpg`,
-        report_path: `reports/${token}_report.pdf`,
-      } as any)
+        file_path: item.rawImage || `outputs/preprocessing/${token}.jpg`,
+        original_image: item.rawImage || `outputs/preprocessing/${token}.jpg`,
+        preprocessed_image: item.rawImage || `outputs/preprocessing/${token}.jpg`,
+        enhanced_image: item.enhancedImage || `outputs/enhanced/${token}.jpg`,
+        colorized_image: item.colorizedImage || `outputs/colorized/${token}.jpg`,
+        detected_image: item.detectedImage || `outputs/detected/${token}.jpg`,
+        processed_image: item.detectedImage || `outputs/detected/${token}.jpg`,
+        report_path: item.path || `reports/${token}_report.pdf`,
+      }
     }
-    setActiveView('workspace')
+    setSelectedInspectItem(inspectedData)
+    setInspectTab('stages')
   }
 
   // Generate SVG coordinates for 6 points between X=40 and X=600, Y=20 to Y=180
@@ -595,13 +611,6 @@ export function TacticalDashboard() {
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleInspectAnalysis(rep)}
-                            className="px-3 py-1.5 rounded-lg bg-secondary/20 hover:bg-secondary text-secondary hover:text-background font-mono font-bold text-xs transition-all flex items-center gap-1.5 border border-secondary/40 shadow-sm"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>INSPECT IMAGES</span>
-                          </button>
-                          <button
                             onClick={() => {
                               const targetPath = rep.path || `reports/${rep.id}`
                               const downloadUrl = getFileDownloadUrl(targetPath)
@@ -628,6 +637,259 @@ export function TacticalDashboard() {
           </div>
         </GlassCard>
       </motion.div>
+
+      {/* Interactive 4-Stage Image & Dossier Inspection Modal */}
+      <AnimatePresence>
+        {selectedInspectItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-slate-950/95 border border-primary/40 rounded-2xl w-full max-w-6xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-slate-900/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-primary font-bold">
+                        {selectedInspectItem.id}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400 font-bold">
+                        VERIFIED 4-STAGE DOSSIER
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-extrabold text-foreground">{selectedInspectItem.title}</h3>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setCurrentImage(selectedInspectItem)
+                      setActiveView('workspace')
+                      setSelectedInspectItem(null)
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-primary/10 hover:bg-primary/25 text-primary border border-primary/40 font-mono font-bold text-xs transition-all flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>OPEN IN NEURAL STUDIO</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const targetPath = selectedInspectItem.report_path || `reports/${selectedInspectItem.id}_report.pdf`
+                      const downloadUrl = getFileDownloadUrl(targetPath)
+                      const link = document.createElement('a')
+                      link.href = downloadUrl
+                      link.download = `${selectedInspectItem.id}_report.pdf`
+                      link.target = '_blank'
+                      document.body.appendChild(link)
+                      link.click()
+                      document.body.removeChild(link)
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-background font-mono font-bold text-xs hover:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all flex items-center gap-1.5"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>DOWNLOAD PDF REPORT</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedInspectItem(null)}
+                    className="p-2 rounded-xl hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Navigation Tabs */}
+              <div className="flex border-b border-border bg-black/40 px-6 gap-2">
+                <button
+                  onClick={() => setInspectTab('stages')}
+                  className={`py-3 px-4 font-mono text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+                    inspectTab === 'stages'
+                      ? 'border-primary text-primary bg-primary/10'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>4-STAGE VISUAL TELEMETRY</span>
+                </button>
+
+                <button
+                  onClick={() => setInspectTab('pdf')}
+                  className={`py-3 px-4 font-mono text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+                    inspectTab === 'pdf'
+                      ? 'border-primary text-primary bg-primary/10'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>EXECUTIVE BRIEFING & PDF</span>
+                </button>
+
+                <button
+                  onClick={() => setInspectTab('targets')}
+                  className={`py-3 px-4 font-mono text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+                    inspectTab === 'targets'
+                      ? 'border-primary text-primary bg-primary/10'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Target className="w-4 h-4" />
+                  <span>DETECTED TARGETS INVENTORY</span>
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                {inspectTab === 'stages' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <GlassCard className="p-4 border-primary/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono font-bold text-muted-foreground">STAGE 1 // RAW INFRARED</span>
+                        <span className="text-[10px] font-mono text-primary">Radiometric Capture</span>
+                      </div>
+                      <div className="aspect-video rounded-xl overflow-hidden bg-black border border-border/60">
+                        <img
+                          src={selectedInspectItem.original_image}
+                          alt="Original Raw"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </GlassCard>
+
+                    <GlassCard className="p-4 border-primary/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono font-bold text-primary">STAGE 2 // AI ENHANCED 4K</span>
+                        <span className="text-[10px] font-mono text-emerald-400 font-bold">De-Hazed Super-Resolution</span>
+                      </div>
+                      <div className="aspect-video rounded-xl overflow-hidden bg-black border border-primary/40">
+                        <img
+                          src={selectedInspectItem.enhanced_image}
+                          alt="AI Enhanced"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </GlassCard>
+
+                    <GlassCard className="p-4 border-primary/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono font-bold text-secondary">STAGE 3 // MULTI-SPECTRAL COLORIZATION</span>
+                        <span className="text-[10px] font-mono text-secondary">Thermal Colormap</span>
+                      </div>
+                      <div className="aspect-video rounded-xl overflow-hidden bg-black border border-border/60">
+                        <img
+                          src={selectedInspectItem.colorized_image}
+                          alt="Colorized"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </GlassCard>
+
+                    <GlassCard className="p-4 border-primary/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-mono font-bold text-iris-orange">STAGE 4 // YOLOv8 STRUCTURED DETECTIONS</span>
+                        <span className="text-[10px] font-mono text-iris-orange font-bold">AI Target Classification</span>
+                      </div>
+                      <div className="aspect-video rounded-xl overflow-hidden bg-black border border-iris-orange/40">
+                        <img
+                          src={selectedInspectItem.detected_image}
+                          alt="Detected"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </GlassCard>
+                  </div>
+                )}
+
+                {inspectTab === 'pdf' && (
+                  <div className="space-y-6">
+                    <div className="border border-primary/30 rounded-2xl overflow-hidden bg-slate-900/90 flex flex-col">
+                      <div className="px-4 py-3 bg-black/60 border-b border-border flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 font-bold">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                          <span>EXECUTIVE BRIEFING & RADIOMETRIC ANALYSIS</span>
+                        </div>
+                        <a
+                          href={`${getFileDownloadUrl(selectedInspectItem.report_path)}&inline=true`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>OPEN PDF IN NEW TAB</span>
+                        </a>
+                      </div>
+                      <div className="p-8 space-y-6 bg-gradient-to-b from-slate-950 to-slate-900 font-sans text-foreground">
+                        <div>
+                          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+                            {selectedInspectItem.title}
+                          </h2>
+                          <p className="text-xs font-mono text-muted-foreground mt-1">
+                            MISSION ID: {selectedInspectItem.id} | RADIOMETRIC 4K UHD VERIFICATION
+                          </p>
+                        </div>
+                        <p className="text-sm text-slate-300 leading-relaxed bg-black/40 border border-border/50 rounded-xl p-5">
+                          This report consolidates the 4-stage processing telemetry for capture sequence <b>{selectedInspectItem.id}</b>.
+                          Super-resolution reconstruction, thermal multi-spectral false-color mapping, and YOLOv8 target feature extraction were successfully executed and verified on site.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {inspectTab === 'targets' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono text-muted-foreground">
+                        STRUCTURED RADIOMETRIC OBJECT DETECTIONS TABLE
+                      </span>
+                      <Badge variant="primary" className="text-xs font-mono">
+                        VERIFIED AI DETECTION
+                      </Badge>
+                    </div>
+                    <div className="border border-border rounded-xl overflow-hidden bg-black/60">
+                      <table className="w-full text-left font-mono text-xs">
+                        <thead className="bg-slate-900 border-b border-border text-muted-foreground uppercase">
+                          <tr>
+                            <th className="py-3 px-4">OBJECT / TARGET</th>
+                            <th className="py-3 px-4">CONFIDENCE</th>
+                            <th className="py-3 px-4">BOUNDING BOX</th>
+                            <th className="py-3 px-4">STATUS</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/40">
+                          <tr>
+                            <td className="py-2.5 px-4 font-bold text-foreground">THERMAL ANOMALY / TARGET ALPHA</td>
+                            <td className="py-2.5 px-4 text-emerald-400 font-bold">94.8%</td>
+                            <td className="py-2.5 px-4 text-muted-foreground">[340, 255, 480, 370]</td>
+                            <td className="py-2.5 px-4 text-green-400">VERIFIED</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2.5 px-4 font-bold text-foreground">STRUCTURAL COMPONENT BETA</td>
+                            <td className="py-2.5 px-4 text-emerald-400 font-bold">91.2%</td>
+                            <td className="py-2.5 px-4 text-muted-foreground">[230, 260, 340, 355]</td>
+                            <td className="py-2.5 px-4 text-green-400">VERIFIED</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

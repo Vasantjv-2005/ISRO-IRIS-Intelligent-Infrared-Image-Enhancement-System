@@ -106,7 +106,7 @@ export const CHANDRA_09_DEMO_DATA: ImageData = {
   preprocessed_image: generateThermalSvgUrl('raw'),
   enhanced_image: generateThermalSvgUrl('enhanced'),
   colorized_image: generateThermalSvgUrl('rainbow'),
-  detected_image: 'outputs/detections/enhanced_ai.jpg',
+  detected_image: 'outputs/detected/5a012b45f7694eea8730e050a9dbe4ba.jpg',
   processed_image: generateThermalSvgUrl('enhanced'),
   report_path: 'reports/CHANDRA_09_FULL_MISSION_REPORT.pdf',
   detections: [

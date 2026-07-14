@@ -95,6 +95,25 @@ class DetectionService:
                     "ROAD": (180, 180, 180),         # Silver
                 }
 
+                # 1. First pass: Draw all bounding box rectangles cleanly underneath
+                for det in detections:
+                    bbox = det.get("bbox", {})
+                    x1 = max(0, int(bbox.get("x1", 0)))
+                    y1 = max(0, int(bbox.get("y1", 0)))
+                    x2 = min(w - 1, int(bbox.get("x2", 0)))
+                    y2 = min(h - 1, int(bbox.get("y2", 0)))
+
+                    cname = det.get("class_name", "OBJECT")
+                    box_color = color_palette.get(cname.upper(), (255, 160, 40))
+                    cv2.rectangle(img, (x1, y1), (x2, y2), box_color, line_thick, cv2.LINE_AA)
+
+                # 2. Second pass: Structured label placement with zero overlap and clean stacking
+                placed_banners = []
+
+                def check_banner_overlap(r1, r2, pad=3):
+                    return not (r1[2] + pad <= r2[0] or r1[0] >= r2[2] + pad or
+                                r1[3] + pad <= r2[1] or r1[1] >= r2[3] + pad)
+
                 for det in detections:
                     bbox = det.get("bbox", {})
                     x1 = max(0, int(bbox.get("x1", 0)))
@@ -105,37 +124,62 @@ class DetectionService:
                     cname = det.get("class_name", "OBJECT")
                     box_color = color_palette.get(cname.upper(), (255, 160, 40))
 
-                    # 1. 2px Bounding box
-                    cv2.rectangle(img, (x1, y1), (x2, y2), box_color, line_thick, cv2.LINE_AA)
-
-                    # 2. Clean label banner (4px padding, thickness 1, font scale ~0.55)
                     conf_val = float(det.get("confidence", 0.0))
                     conf_pct = round(conf_val * 100.0)
                     label = f"{cname} {conf_pct}%"
                     (text_w, text_h), baseline = cv2.getTextSize(
                         label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness
                     )
+                    banner_w = text_w + 10
+                    banner_h = text_h + baseline + 8
 
-                    if y1 >= text_h + baseline + 8:
-                        label_y1 = y1 - text_h - baseline - 8
-                        label_y2 = y1
-                        text_y = y1 - 6
-                    else:
-                        label_y1 = y1
-                        label_y2 = y1 + text_h + baseline + 8
-                        text_y = y1 + text_h + 4
+                    # Generate structured candidate locations around the bounding box
+                    candidates = [
+                        (x1, y1 - banner_h - 2),                          # 1. Above top-left
+                        (x1, y1 + 2),                                     # 2. Inside top-left
+                        (x1, y2 + 2),                                     # 3. Below bottom-left
+                        (max(0, x2 - banner_w), y1 - banner_h - 2),       # 4. Above top-right
+                        (max(0, x2 - banner_w), y1 + 2),                  # 5. Inside top-right
+                        (max(0, x2 - banner_w), y2 + 2),                  # 6. Below bottom-right
+                        (x1, max(0, int((y1 + y2 - banner_h) / 2))),      # 7. Middle left
+                    ]
+                    # Multi-tiered vertical stacking for dense/overlapping detections
+                    for step in range(1, 10):
+                        candidates.append((x1, y1 - banner_h - 2 - step * (banner_h + 3)))             # Stack above top-left
+                        candidates.append((x1, y2 + 2 + step * (banner_h + 3)))                        # Stack below bottom-left
+                        candidates.append((x1, y1 + 2 + step * (banner_h + 3)))                        # Stack inside downwards
+                        candidates.append((max(0, x2 - banner_w), y1 - banner_h - 2 - step * (banner_h + 3))) # Stack above top-right
+                        candidates.append((max(0, x2 - banner_w), y2 + 2 + step * (banner_h + 3)))            # Stack below bottom-right
 
-                    cv2.rectangle(
-                        img,
-                        (x1, label_y1),
-                        (min(w - 1, x1 + text_w + 8), label_y2),
-                        box_color,
-                        cv2.FILLED,
-                    )
+                    best_rect = None
+                    for cand_x, cand_y in candidates:
+                        cx = max(0, min(w - banner_w, cand_x))
+                        cy = max(0, min(h - banner_h, cand_y))
+                        rect = (cx, cy, cx + banner_w, cy + banner_h)
+                        if not any(check_banner_overlap(rect, pb) for pb in placed_banners):
+                            best_rect = rect
+                            break
+
+                    # Fallback scan if all structured candidates overlap in extremely dense regions
+                    if best_rect is None:
+                        found_fallback = False
+                        for scan_y in range(max(0, y1 - banner_h - 2), h - banner_h, banner_h + 2):
+                            rect = (max(0, min(w - banner_w, x1)), scan_y, max(0, min(w - banner_w, x1)) + banner_w, scan_y + banner_h)
+                            if not any(check_banner_overlap(rect, pb) for pb in placed_banners):
+                                best_rect = rect
+                                found_fallback = True
+                                break
+                        if not found_fallback:
+                            best_rect = (max(0, min(w - banner_w, x1)), max(0, min(h - banner_h, y1 - banner_h - 2)), max(0, min(w - banner_w, x1)) + banner_w, max(0, min(h - banner_h, y1 - banner_h - 2)) + banner_h)
+
+                    bx1, by1, bx2, by2 = best_rect
+                    placed_banners.append(best_rect)
+
+                    cv2.rectangle(img, (bx1, by1), (bx2, by2), box_color, cv2.FILLED)
                     cv2.putText(
                         img,
                         label,
-                        (x1 + 4, text_y),
+                        (bx1 + 5, by2 - baseline - 4),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         font_scale,
                         (255, 255, 255),

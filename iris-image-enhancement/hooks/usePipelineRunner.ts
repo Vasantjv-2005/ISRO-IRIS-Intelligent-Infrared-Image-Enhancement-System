@@ -76,8 +76,24 @@ export function usePipelineRunner() {
         confidence: settings.detectionConfidence || 0.25,
       })
       const detectedObjects = detectRes.detections || []
+      const detectedImgPath = (detectRes as any).detected_image_path || (detectRes as any).output_path || (detectRes as any).detected_image || enhancedImgPath
       markStepComplete('detection')
       toast.success(`YOLOv8 detected ${detectedObjects.length} thermal targets`)
+
+      // Immediately update ImageContext so bounding boxes and targets show up right right as detection finishes
+      setCurrentImage({
+        ...currentImage,
+        upload_id: currentImage?.upload_id,
+        filename,
+        file_path: targetPath,
+        original_image: targetPath,
+        preprocessed_image: (prepRes as any).preprocessed_image || (prepRes as any).output_path || targetPath,
+        enhanced_image: enhancedImgPath,
+        colorized_image: colorizedImgPath,
+        detected_image: detectedImgPath,
+        processed_image: detectedImgPath,
+        detections: detectedObjects,
+      } as any)
 
       // Step 5: Gemini Analysis
       updateStep('analysis')
@@ -89,6 +105,21 @@ export function usePipelineRunner() {
       const analysisText = analysisRes.analysis
       markStepComplete('analysis')
       toast.success('Gemini AI Scene Analysis generated')
+
+      setCurrentImage({
+        ...currentImage,
+        upload_id: currentImage?.upload_id,
+        filename,
+        file_path: targetPath,
+        original_image: targetPath,
+        preprocessed_image: (prepRes as any).preprocessed_image || (prepRes as any).output_path || targetPath,
+        enhanced_image: enhancedImgPath,
+        colorized_image: colorizedImgPath,
+        detected_image: detectedImgPath,
+        processed_image: detectedImgPath,
+        detections: detectedObjects,
+        analysis: analysisText,
+      } as any)
 
       // Step 6: Export / Report Generation
       updateStep('export')
@@ -247,11 +278,14 @@ export function usePipelineRunner() {
         confidence: settings.detectionConfidence || 0.25,
       })
       const detectedObjects = detectRes.detections || []
+      const detectedImgPath = (detectRes as any).detected_image_path || (detectRes as any).output_path || (detectRes as any).detected_image || targetPath
       markStepComplete('detection')
       updateStep('analysis')
       setCurrentImage({
         ...currentImage,
         detections: detectedObjects,
+        detected_image: detectedImgPath,
+        processed_image: detectedImgPath,
       } as any)
       toast.success(`YOLOv8 detected ${detectedObjects.length} thermal objects`)
     } catch (err: any) {

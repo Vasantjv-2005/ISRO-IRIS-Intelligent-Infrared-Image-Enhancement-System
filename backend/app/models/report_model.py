@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def utc_now() -> datetime:
@@ -40,15 +41,15 @@ class ReportModel(BaseModel):
 
     report_id: str = Field(default_factory=lambda: str(uuid4()))
 
-    upload_id: str
+    upload_id: str = ""
 
-    analysis_id: str
+    analysis_id: str | None = ""
 
     status: ReportStatus = ReportStatus.PENDING
 
-    report_title: str
+    report_title: str = ""
 
-    report_path: str
+    report_path: str = ""
 
     report_format: str = "pdf"
 
@@ -72,8 +73,22 @@ class ReportModel(BaseModel):
 
     updated_at: datetime = Field(default_factory=utc_now)
 
+    @model_validator(mode="before")
+    @classmethod
+    def map_legacy_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "report_title" not in data or data["report_title"] is None or not str(data["report_title"]).strip():
+                data["report_title"] = data.get("title") or f"Comprehensive Dossier - {data.get('upload_id', 'IRIS')}"
+            if "analysis_id" not in data or data["analysis_id"] is None:
+                data["analysis_id"] = data.get("upload_id") or ""
+            if "upload_id" not in data or data["upload_id"] is None:
+                data["upload_id"] = ""
+            if "report_path" not in data or data["report_path"] is None:
+                data["report_path"] = f"reports/{data.get('report_id', '')}"
+        return data
+
     model_config = {
         "populate_by_name": True,
         "extra": "ignore",
         "validate_assignment": True,
-    }
+    }

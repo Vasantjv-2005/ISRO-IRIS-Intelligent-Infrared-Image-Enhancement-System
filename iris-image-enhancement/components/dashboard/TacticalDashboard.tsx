@@ -15,12 +15,14 @@ import {
   Layers,
   FileText,
   Download,
+  Eye,
   CheckCircle2,
 } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { useView } from '@/lib/context/ViewContext'
 import { useImage } from '@/lib/context/ImageContext'
+import { getFileDownloadUrl } from '@/lib/api'
 import { CHANDRA_09_DEMO_DATA } from '@/lib/demoData'
 
 const telemetryData = [
@@ -71,17 +73,17 @@ export function TacticalDashboard() {
   const { data: dashboardData } = useDashboard()
 
   // Deduplicate and merge real MongoDB telemetry activity with fallback mission logs
-  const liveActivities = (dashboardData?.recent_activities || []).map((act, i) => ({
+  const liveActivities = (dashboardData?.recent_activities || []).map((act: any, i: number) => ({
     id: act.upload_id || `LIVE-${i}`,
     sector: act.filename || 'Active Infrared Capture',
     timestamp: act.uploaded_at ? new Date(act.uploaded_at).toLocaleTimeString() : 'Just now',
     resolution: '4K UHD Radiometric',
     psnrGain: '+9.2 dB',
-    targets: 4,
+    targets: act.objects_detected?.length || act.total_objects || 4,
     status: act.status || 'COMPLETED',
   }))
 
-  const combinedAnalyses = [...liveActivities, ...recentAnalyses]
+  const combinedAnalyses = liveActivities.length > 0 ? liveActivities : recentAnalyses
   const seenKeys = new Set<string>()
   const deduplicatedAnalyses = combinedAnalyses.filter((item) => {
     const key = String(item.id || item.sector).toLowerCase().trim()
@@ -90,8 +92,41 @@ export function TacticalDashboard() {
     return true
   }).slice(0, 6)
 
+  const liveReports = (dashboardData?.recent_reports && dashboardData.recent_reports.length > 0)
+    ? dashboardData.recent_reports.map((rep: any) => ({
+        id: rep.report_id || rep.title || 'report.pdf',
+        title: rep.title || `${(rep.report_id || 'Mission Report').replace('_report.pdf', '').replace('.pdf', '')} Dossier`,
+        quality: '4K UHD (3840 x 2160 Radiometric)',
+        contents: `${rep.total_objects_detected || 4} Targets + YOLOv8 + Telemetry`,
+        path: rep.report_path || `reports/${rep.report_id}`,
+        timestamp: rep.generated_at || rep.created_at || new Date().toISOString(),
+      }))
+    : []
+
   const handleLaunchSample = () => {
     setCurrentImage(CHANDRA_09_DEMO_DATA)
+    setActiveView('workspace')
+  }
+
+  const handleInspectAnalysis = (item: any) => {
+    const token = String(item.id || '').replace('_report.pdf', '').replace('.pdf', '')
+    if (!token || token === 'CHANDRA_09_FULL_MISSION_REPORT' || token === 'DOS-2026-CHANDRA-FULL' || token === 'CHANDRA-09' || token.startsWith('T-')) {
+      setCurrentImage(CHANDRA_09_DEMO_DATA)
+    } else {
+      setCurrentImage({
+        ...CHANDRA_09_DEMO_DATA,
+        upload_id: token,
+        filename: item.sector || `${token}.jpg`,
+        file_path: `outputs/preprocessing/${token}.jpg`,
+        original_image: `outputs/preprocessing/${token}.jpg`,
+        preprocessed_image: `outputs/preprocessing/${token}.jpg`,
+        enhanced_image: `outputs/enhanced/${token}.jpg`,
+        colorized_image: `outputs/colorized/${token}.jpg`,
+        detected_image: `outputs/detected/${token}.jpg`,
+        processed_image: `outputs/detected/${token}.jpg`,
+        report_path: `reports/${token}_report.pdf`,
+      } as any)
+    }
     setActiveView('workspace')
   }
 
@@ -155,15 +190,15 @@ export function TacticalDashboard() {
         {[
           {
             title: 'Thermal Captures Processed',
-            value: (dashboardData?.statistics?.total_processed_images || dashboardData?.statistics?.total_uploads || 42).toLocaleString(),
-            change: `${dashboardData?.statistics?.active_sessions || 3} active session(s)`,
+            value: (dashboardData?.statistics?.total_processed_images ?? dashboardData?.statistics?.total_uploads ?? 0).toLocaleString(),
+            change: `${dashboardData?.statistics?.active_sessions ?? 1} active session(s)`,
             icon: <Database className="w-5 h-5 text-primary" />,
             borderColor: 'hover:border-primary/60',
             glowColor: 'group-hover:shadow-[0_0_25px_rgba(0,240,255,0.2)]',
           },
           {
             title: 'YOLOv8 Targets Tracked',
-            value: (dashboardData?.statistics?.total_objects_detected || 128).toLocaleString(),
+            value: (dashboardData?.statistics?.total_objects_detected ?? 0).toLocaleString(),
             change: 'Live MongoDB Detections',
             icon: <Target className="w-5 h-5 text-iris-orange" />,
             borderColor: 'hover:border-iris-orange/60',
@@ -171,15 +206,15 @@ export function TacticalDashboard() {
           },
           {
             title: 'Reports & Analyses Completed',
-            value: (dashboardData?.statistics?.total_reports_generated || dashboardData?.statistics?.total_completed_analysis || 18).toLocaleString(),
-            change: `${(dashboardData?.statistics?.processing_success_rate || 99.4).toFixed(1)}% Success Rate`,
+            value: (dashboardData?.statistics?.total_reports_generated ?? 0).toLocaleString(),
+            change: `${(dashboardData?.statistics?.processing_success_rate ?? 99.4).toFixed(1)}% Success Rate`,
             icon: <TrendingUp className="w-5 h-5 text-secondary" />,
             borderColor: 'hover:border-secondary/60',
             glowColor: 'group-hover:shadow-[0_0_25px_rgba(0,210,180,0.2)]',
           },
           {
             title: 'Mean Processing Velocity',
-            value: `${(dashboardData?.statistics?.average_processing_time_seconds || 0.84).toFixed(2)}s`,
+            value: `${(dashboardData?.statistics?.average_processing_time_seconds ?? 0.84).toFixed(2)}s`,
             change: 'Real-Time Pipeline Speed',
             icon: <Layers className="w-5 h-5 text-accent" />,
             borderColor: 'hover:border-accent/60',
@@ -472,7 +507,7 @@ export function TacticalDashboard() {
               return (
                 <div
                   key={item.id}
-                  onClick={handleLaunchSample}
+                  onClick={() => handleInspectAnalysis(item)}
                   className="p-4 rounded-xl bg-background/60 border border-border/80 hover:border-primary/60 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all cursor-pointer group"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -530,30 +565,13 @@ export function TacticalDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40 text-xs">
-                {[
-                  {
-                    id: 'd2c9d7ab6fac446e9a4b49d2a4a8139c_report.pdf',
-                    title: 'Chandra-09 Full Mission Comprehensive Report',
-                    quality: '4K UHD (3840 x 2160 Radiometric)',
-                    contents: '4 Images + YOLOv8 Models + Telemetry',
-                  },
-                  {
-                    id: 'de28959e4f2441e7b31f5f31be44b014_report.pdf',
-                    title: 'Orbital Thermal Array Delta-4 Report',
-                    quality: '4K UHD (3840 x 2160 Radiometric)',
-                    contents: '4 Images + YOLOv8 Models + Telemetry',
-                  },
-                  {
-                    id: 'CHANDRA_09_FULL_MISSION_REPORT.pdf',
-                    title: 'ISRO Deep-Space Infrared Multi-Stage Dossier',
-                    quality: '4K UHD (3840 x 2160 Radiometric)',
-                    contents: '4 Images + YOLOv8 Models + Telemetry',
-                  },
-                ].map((rep, idx) => {
-                  const repDate = new Date(Date.now() - idx * 180000)
-                  const repDateStr = repDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() + ' ' + repDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                {liveReports.map((rep: any, idx: number) => {
+                  const repDate = rep.timestamp ? new Date(rep.timestamp) : new Date(Date.now() - idx * 180000)
+                  const repDateStr = !isNaN(repDate.getTime())
+                    ? repDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() + ' ' + repDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : 'JUST NOW'
                   return (
-                    <tr key={rep.id} className="hover:bg-primary/5 transition-colors group">
+                    <tr key={rep.id + idx} className="hover:bg-primary/5 transition-colors group">
                       <td className="py-3.5 px-4 font-mono font-semibold text-foreground group-hover:text-primary">
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-primary shrink-0" />
@@ -575,20 +593,32 @@ export function TacticalDashboard() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => {
-                            const link = document.createElement('a')
-                            link.href = `/api/v1/download/?file_path=reports/${rep.id}`
-                            link.download = rep.id
-                            document.body.appendChild(link)
-                            link.click()
-                            document.body.removeChild(link)
-                          }}
-                          className="px-3.5 py-1.5 rounded-lg bg-primary/20 hover:bg-primary text-primary hover:text-background font-mono font-bold text-xs transition-all flex items-center gap-1.5 ml-auto border border-primary/40 shadow-sm"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>DOWNLOAD PDF</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleInspectAnalysis(rep)}
+                            className="px-3 py-1.5 rounded-lg bg-secondary/20 hover:bg-secondary text-secondary hover:text-background font-mono font-bold text-xs transition-all flex items-center gap-1.5 border border-secondary/40 shadow-sm"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>INSPECT IMAGES</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              const targetPath = rep.path || `reports/${rep.id}`
+                              const downloadUrl = getFileDownloadUrl(targetPath)
+                              const link = document.createElement('a')
+                              link.href = downloadUrl
+                              link.download = rep.id || 'mission_report.pdf'
+                              link.target = '_blank'
+                              document.body.appendChild(link)
+                              link.click()
+                              document.body.removeChild(link)
+                            }}
+                            className="px-3.5 py-1.5 rounded-lg bg-primary/20 hover:bg-primary text-primary hover:text-background font-mono font-bold text-xs transition-all flex items-center gap-1.5 border border-primary/40 shadow-sm"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>DOWNLOAD PDF</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

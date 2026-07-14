@@ -66,8 +66,7 @@ export function WorkspaceViewport() {
     getFileDownloadUrl(currentImage?.preprocessed_image) || beforeImg
   const detectedImgUrl =
     getFileDownloadUrl(
-      currentImage?.detected_image || (currentImage as any)?.detected_image_path,
-      true
+      currentImage?.detected_image || (currentImage as any)?.detected_image_path
     ) || afterImg
 
   const detections = currentImage?.detections || []

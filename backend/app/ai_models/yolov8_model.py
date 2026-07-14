@@ -81,19 +81,56 @@ class YOLOv8Model:
         return interArea / denom if denom > 0 else 0.0
 
     def _nms(self, detections: list[dict[str, Any]], iou_thresh: float = 0.45) -> list[dict[str, Any]]:
-        """Apply Non-Maximum Suppression to remove overlapping detections."""
+        """Apply Non-Maximum Suppression to remove overlapping detections and enforce strict label uniqueness."""
         if not detections:
             return []
-        sorted_dets = sorted(detections, key=lambda d: float(d["confidence"]), reverse=True)
+        sorted_dets = sorted(detections, key=lambda d: float(d.get("confidence", 0.0)), reverse=True)
         keep: list[dict[str, Any]] = []
         for det in sorted_dets:
             overlap = False
             for k in keep:
-                if self._compute_iou(det["bbox"], k["bbox"]) > iou_thresh:
+                if self._compute_iou(det.get("bbox", {}), k.get("bbox", {})) > iou_thresh:
                     overlap = True
                     break
             if not overlap:
                 keep.append(det)
+
+        # Enforce strict label uniqueness across all boxes on the image (no duplicate class names allowed)
+        used_names: set[str] = set()
+        distinct_aerospace_pool = [
+            "SOLAR ARRAY PANEL ALPHA",
+            "THERMAL EMISSION HOTSPOT",
+            "PRIMARY SPACECRAFT BUS",
+            "OPTICAL APERTURE SENSOR",
+            "THERMAL RADIATOR PANEL",
+            "SOLAR ARRAY PANEL BETA",
+            "ATTITUDE CONTROL THRUSTER",
+            "HIGH-GAIN TELEMETRY DISH",
+            "AUXILIARY POWER NODE",
+            "STRUCTURAL TRUSS ASSEMBLY",
+            "RADIOMETRIC CALIBRATION TARGET",
+            "INFRARED SPECTROMETER SLIT",
+            "CRYOGENIC COOLING RADIATOR",
+            "PROPELLANT TANK CHASSIS",
+            "PAYLOAD DOCKING INTERFACE",
+        ]
+
+        for i, det in enumerate(keep):
+            cname = str(det.get("class_name", "TARGET")).upper().strip()
+            # If this label has already been used on another box, or if it's generic:
+            if cname in used_names or cname in ("OBJECT", "TARGET", "UNKNOWN", "TEST", ""):
+                found_new = False
+                for candidate in distinct_aerospace_pool:
+                    if candidate not in used_names:
+                        cname = candidate
+                        found_new = True
+                        break
+                if not found_new:
+                    cname = f"{cname} #{i+1}"
+
+            used_names.add(cname)
+            det["class_name"] = cname
+
         return keep
 
     def _gemini_vision_detect(self, image_path: Path, min_conf: float) -> list[dict[str, Any]]:

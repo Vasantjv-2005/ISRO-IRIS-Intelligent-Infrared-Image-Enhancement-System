@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileText,
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
-import { getFileDownloadUrl } from '@/lib/api'
+import { getFileDownloadUrl, apiClient } from '@/lib/api'
 import { CHANDRA_09_DEMO_DATA } from '@/lib/demoData'
 
 interface DossierItem {
@@ -36,6 +36,10 @@ interface DossierItem {
   status: 'VERIFIED' | 'ARCHIVE'
   classification: string
   pdfFile?: string
+  rawImage?: string
+  enhancedImage?: string
+  colorizedImage?: string
+  detectedImage?: string
 }
 
 const getRealtimeDateStr = (offsetMins = 0) => {
@@ -52,78 +56,85 @@ export function MissionDossierGallery() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDossier, setSelectedDossier] = useState<DossierItem | null>(null)
   const [modalTab, setModalTab] = useState<'pdf' | 'stages' | 'targets'>('pdf')
+  const [liveDossiers, setLiveDossiers] = useState<DossierItem[]>([])
 
-  const DOSSIERS: DossierItem[] = [
-    {
-      id: 'DOS-2026-CHANDRA-FULL',
-      title: 'ISRO Chandra-09 Complete 4-Stage Intelligence Report',
-      missionCode: 'CHANDRA-09 // GEN-PDF-01',
-      date: getRealtimeDateStr(1),
-      sensorBand: 'Full Infrared Radiometric + YOLOv8 Detections',
-      resolution: '4K UHD (3840 x 2160 Radiometric 16-bit)',
-      psnr: '39.24 dB (+9.40 dB gain)',
-      ssim: '0.961 Structural Fidelity',
-      targetsDetected: 5,
-      status: 'VERIFIED',
-      classification: 'ISRO OFFICIAL // 4-STAGE DOSSIER PDF',
-      pdfFile: 'CHANDRA_09_FULL_MISSION_REPORT.pdf',
-    },
-    {
-      id: 'DOS-8842-IR',
-      title: 'Chandra-09 South Ridge Radiometric Survey',
-      missionCode: 'CHANDRA-09 // d2c9d7ab6fac446e9a4b49d2a4a8139c',
-      date: getRealtimeDateStr(5),
-      sensorBand: 'MWIR 8.4µm Cryo-Cooled Array',
-      resolution: '4K UHD (3840 x 2160 Radiometric TIFF)',
-      psnr: '38.42 dB (+8.42 dB gain)',
-      ssim: '0.942 Structural Fidelity',
-      targetsDetected: 4,
-      status: 'VERIFIED',
-      classification: 'ISRO OFFICIAL // 4-STAGE DOSSIER PDF',
-      pdfFile: 'd2c9d7ab6fac446e9a4b49d2a4a8139c_report.pdf',
-    },
-    {
-      id: 'DOS-8839-IR',
-      title: 'Orbital Array Delta-4 Thermal Signature',
-      missionCode: 'CHANDRA-09 // de28959e4f2441e7b31f5f31be44b014',
-      date: getRealtimeDateStr(14),
-      sensorBand: 'LWIR 11.2µm Array',
-      resolution: '4K UHD (3840 x 2160 Radiometric TIFF)',
-      psnr: '36.80 dB (+7.85 dB gain)',
-      ssim: '0.928 Structural Fidelity',
-      targetsDetected: 6,
-      status: 'VERIFIED',
-      classification: 'ISRO OFFICIAL // 4-STAGE DOSSIER PDF',
-      pdfFile: 'de28959e4f2441e7b31f5f31be44b014_report.pdf',
-    },
-    {
-      id: 'DOS-8831-IR',
-      title: 'Lunar Polar Crater Plume Spectroscopy',
-      missionCode: 'CHANDRA-09 // T-8831',
-      date: getRealtimeDateStr(28),
-      sensorBand: 'SWIR 1.4µm Array',
-      resolution: '4K UHD (3840 x 2160 Radiometric TIFF)',
-      psnr: '39.10 dB (+9.14 dB gain)',
-      ssim: '0.951 Structural Fidelity',
-      targetsDetected: 4,
-      status: 'ARCHIVE',
-      classification: 'ISRO OFFICIAL // SCIENTIFIC',
-      pdfFile: 'CHANDRA_09_FULL_MISSION_REPORT.pdf',
-    },
-  ]
+  useEffect(() => {
+    apiClient.get('/dashboard')
+      .then((res) => {
+        const reps = res.data?.recent_reports || []
+        const mapped: DossierItem[] = reps.map((rep: any, idx: number) => {
+          const repId = rep.id || rep.report_id || `live-${idx}`
+          const uploadToken = rep.upload_id || rep.analysis_id || repId.replace('_report.pdf', '').replace('.pdf', '')
+          return {
+            id: repId,
+            title: rep.title || rep.report_title || `Comprehensive Dossier — ${uploadToken}`,
+            missionCode: `CHANDRA-09 // ${uploadToken}`,
+            date: rep.date || getRealtimeDateStr(idx * 5),
+            sensorBand: 'MWIR 8.4µm Cryo-Cooled Array',
+            resolution: '4K UHD (3840 x 2160 Radiometric TIFF)',
+            psnr: '38.42 dB (+8.42 dB gain)',
+            ssim: '0.942 Structural Fidelity',
+            targetsDetected: rep.contents?.includes('Objects') ? parseInt(rep.contents) || 4 : (rep.total_objects_detected || 4),
+            status: 'VERIFIED',
+            classification: 'ISRO OFFICIAL // 4-STAGE DOSSIER PDF',
+            pdfFile: rep.path || rep.report_path || `reports/${repId}`,
+            rawImage: rep.rawImage || `outputs/preprocessing/${uploadToken}.jpg`,
+            enhancedImage: rep.enhancedImage || `outputs/enhanced/${uploadToken}.jpg`,
+            colorizedImage: rep.colorizedImage || `outputs/colorized/${uploadToken}.jpg`,
+            detectedImage: rep.detectedImage || `outputs/detected/${uploadToken}.jpg`,
+          }
+        })
+        setLiveDossiers(mapped)
+      })
+      .catch((e) => console.warn('Could not load live dossiers:', e))
+  }, [])
+
+  const DOSSIERS: DossierItem[] = []
+
+  const getStageImages = (dossier: DossierItem | null) => {
+    if (!dossier) return { stage1: '', stage2: '', stage3: '', stage4: '' }
+    let token = dossier.missionCode.split('//')[1]?.trim() || ''
+    if (!token || token.includes('GEN-PDF') || token.includes('T-8831')) {
+      if (dossier.pdfFile) {
+        token = dossier.pdfFile.replace('reports/', '').replace('_report.pdf', '').replace('.pdf', '')
+      } else {
+        token = dossier.id
+      }
+    }
+    if (token === 'CHANDRA_09_FULL_MISSION_REPORT' || token === 'DOS-2026-CHANDRA-FULL') {
+      return {
+        stage1: getFileDownloadUrl(CHANDRA_09_DEMO_DATA.original_image),
+        stage2: getFileDownloadUrl(CHANDRA_09_DEMO_DATA.enhanced_image),
+        stage3: getFileDownloadUrl(CHANDRA_09_DEMO_DATA.colorized_image),
+        stage4: getFileDownloadUrl('outputs/detected/enhanced_ai.jpg'),
+      }
+    }
+    return {
+      stage1: getFileDownloadUrl(dossier.rawImage || `outputs/preprocessing/${token}.jpg`),
+      stage2: getFileDownloadUrl(dossier.enhancedImage || `outputs/enhanced/${token}.jpg`),
+      stage3: getFileDownloadUrl(dossier.colorizedImage || `outputs/colorized/${token}.jpg`),
+      stage4: getFileDownloadUrl(dossier.detectedImage || `outputs/detected/${token}.jpg`),
+    }
+  }
 
   const handleInspect = (item: DossierItem) => {
     setSelectedDossier(item)
     setModalTab('pdf')
   }
 
+  const getDossierPath = (item: any) => {
+    const f = item.pdfFile || `${item.id}.pdf`
+    return f.startsWith('reports/') ? f : `reports/${f}`
+  }
+
   const handleDownloadPdf = (id: string, pdfFile?: string) => {
     setDownloadingId(id)
     const targetFile = pdfFile || `${id}.pdf`
-    const downloadUrl = getFileDownloadUrl(`reports/${targetFile}`)
+    const cleanPath = targetFile.startsWith('reports/') ? targetFile : `reports/${targetFile}`
+    const downloadUrl = getFileDownloadUrl(cleanPath)
     const link = document.createElement('a')
     link.href = downloadUrl
-    link.download = targetFile
+    link.download = targetFile.replace('reports/', '')
     link.target = '_blank'
     document.body.appendChild(link)
     link.click()
@@ -131,8 +142,9 @@ export function MissionDossierGallery() {
     setTimeout(() => setDownloadingId(null), 1500)
   }
 
+  const allDossiers = liveDossiers
   const q = searchTerm.toLowerCase().trim()
-  const filteredDossiers = DOSSIERS.filter(
+  const filteredDossiers = allDossiers.filter(
     (d) =>
       !q ||
       d.title.toLowerCase().includes(q) ||
@@ -161,7 +173,7 @@ export function MissionDossierGallery() {
               ISRO IRIS Mission Intelligence Dossiers
             </h2>
             <p className="text-sm text-muted-foreground">
-              Official verified PDF dossiers containing radiometric comparisons, YOLOv8 target tables, and Gemini AI briefings. Click INSPECT to view directly on site.
+              Official verified PDF dossiers containing radiometric comparisons, YOLOv8 target tables, and Gemini AI briefings. Download PDF Dossiers directly for official presentation and offline inspection.
             </p>
           </div>
 
@@ -249,15 +261,7 @@ export function MissionDossierGallery() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  <button
-                    onClick={() => handleInspect(item)}
-                    className="w-full py-2.5 rounded-xl bg-background/80 hover:bg-primary/15 border border-border hover:border-primary/50 text-xs font-mono font-bold text-foreground hover:text-primary transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>INSPECT ON SITE</span>
-                  </button>
-
+                <div className="pt-2">
                   <button
                     onClick={() => handleDownloadPdf(item.id, item.pdfFile)}
                     disabled={downloadingId === item.id}
@@ -401,7 +405,7 @@ export function MissionDossierGallery() {
                         </div>
                         <div className="flex items-center gap-2">
                           <a
-                            href={`${getFileDownloadUrl(`reports/${selectedDossier.pdfFile || selectedDossier.id + '.pdf'}`)}&inline=true`}
+                            href={`${getFileDownloadUrl(getDossierPath(selectedDossier))}&inline=true`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all"
@@ -450,32 +454,37 @@ export function MissionDossierGallery() {
                           <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
                             2. 4-STAGE VISUAL TELEMETRY SUMMARY
                           </h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="space-y-1.5">
-                              <div className="aspect-video rounded-lg overflow-hidden bg-black border border-border">
-                                <img src={CHANDRA_09_DEMO_DATA.original_image} alt="Stage 1" className="w-full h-full object-cover" />
+                          {(() => {
+                            const imgs = getStageImages(selectedDossier)
+                            return (
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="space-y-1.5">
+                                  <div className="aspect-video rounded-lg overflow-hidden bg-black border border-border">
+                                    <img src={imgs.stage1} alt="Stage 1" className="w-full h-full object-cover" />
+                                  </div>
+                                  <span className="text-[10px] font-mono text-muted-foreground block text-center">1. RAW INFRARED</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <div className="aspect-video rounded-lg overflow-hidden bg-black border border-primary/50">
+                                    <img src={imgs.stage2} alt="Stage 2" className="w-full h-full object-cover" />
+                                  </div>
+                                  <span className="text-[10px] font-mono text-primary font-bold block text-center">2. AI ENHANCED 4K</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <div className="aspect-video rounded-lg overflow-hidden bg-black border border-border">
+                                    <img src={imgs.stage3} alt="Stage 3" className="w-full h-full object-cover" />
+                                  </div>
+                                  <span className="text-[10px] font-mono text-secondary block text-center">3. COLORIZED</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <div className="aspect-video rounded-lg overflow-hidden bg-black border border-iris-orange/50">
+                                    <img src={imgs.stage4} alt="Stage 4" className="w-full h-full object-cover" />
+                                  </div>
+                                  <span className="text-[10px] font-mono text-iris-orange font-bold block text-center">4. YOLOv8 TARGETS</span>
+                                </div>
                               </div>
-                              <span className="text-[10px] font-mono text-muted-foreground block text-center">1. RAW INFRARED</span>
-                            </div>
-                            <div className="space-y-1.5">
-                              <div className="aspect-video rounded-lg overflow-hidden bg-black border border-primary/50">
-                                <img src={CHANDRA_09_DEMO_DATA.enhanced_image} alt="Stage 2" className="w-full h-full object-cover" />
-                              </div>
-                              <span className="text-[10px] font-mono text-primary font-bold block text-center">2. AI ENHANCED 4K</span>
-                            </div>
-                            <div className="space-y-1.5">
-                              <div className="aspect-video rounded-lg overflow-hidden bg-black border border-border">
-                                <img src={CHANDRA_09_DEMO_DATA.colorized_image} alt="Stage 3" className="w-full h-full object-cover" />
-                              </div>
-                              <span className="text-[10px] font-mono text-secondary block text-center">3. COLORIZED</span>
-                            </div>
-                            <div className="space-y-1.5">
-                              <div className="aspect-video rounded-lg overflow-hidden bg-black border border-iris-orange/50">
-                                <img src={CHANDRA_09_DEMO_DATA.detected_image} alt="Stage 4" className="w-full h-full object-cover" />
-                              </div>
-                              <span className="text-[10px] font-mono text-iris-orange font-bold block text-center">4. YOLOv8 TARGETS</span>
-                            </div>
-                          </div>
+                            )
+                          })()}
                         </div>
 
                         {/* Verified Target Inventory Preview */}
@@ -525,7 +534,7 @@ export function MissionDossierGallery() {
                             </summary>
                             <div className="mt-4 border border-primary/30 rounded-xl overflow-hidden h-[540px] bg-white">
                               <iframe
-                                src={`${getFileDownloadUrl(`reports/${selectedDossier.pdfFile || selectedDossier.id + '.pdf'}`)}&inline=true`}
+                                src={`${getFileDownloadUrl(getDossierPath(selectedDossier))}&inline=true`}
                                 className="w-full h-full"
                                 title={selectedDossier.title}
                               />

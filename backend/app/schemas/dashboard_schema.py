@@ -87,4 +87,8 @@ class DashboardResponseSchema(BaseModel):
         default_factory=list
     )
 
+    recent_reports: List[dict] = Field(
+        default_factory=list
+    )
+
     system_health: SystemHealthSchema

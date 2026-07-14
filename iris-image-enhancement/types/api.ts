@@ -144,6 +144,7 @@ export interface SystemHealthSchema {
 export interface DashboardResponseSchema {
   statistics: DashboardStatisticsSchema
   recent_activities: RecentActivitySchema[]
+  recent_reports?: any[]
   system_health: SystemHealthSchema
 }
 

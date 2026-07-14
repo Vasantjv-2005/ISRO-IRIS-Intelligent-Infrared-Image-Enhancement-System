@@ -6,12 +6,33 @@ export const downloadService = {
   },
 
   async downloadFileBlob(filePath: string): Promise<Blob> {
-    if (filePath.startsWith('data:')) {
+    if (filePath.startsWith('data:') || filePath.startsWith('blob:')) {
       const res = await fetch(filePath)
       return await res.blob()
     }
+
+    let cleanPath = filePath
+    if (filePath.includes('file_path=')) {
+      try {
+        const urlObj = new URL(filePath, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
+        const param = urlObj.searchParams.get('file_path')
+        if (param) {
+          cleanPath = param
+        } else {
+          const match = filePath.match(/file_path=([^&]+)/)
+          if (match && match[1]) cleanPath = decodeURIComponent(match[1])
+        }
+      } catch (e) {
+        const match = filePath.match(/file_path=([^&]+)/)
+        if (match && match[1]) cleanPath = decodeURIComponent(match[1])
+      }
+    } else if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      const res = await fetch(filePath)
+      return await res.blob()
+    }
+
     try {
-      const response = await apiClient.get(`/download/?file_path=${encodeURIComponent(filePath)}`, {
+      const response = await apiClient.get(`/download/?file_path=${encodeURIComponent(cleanPath)}`, {
         responseType: 'blob',
       })
       return response.data

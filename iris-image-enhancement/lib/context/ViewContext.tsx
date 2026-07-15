@@ -11,8 +11,8 @@ interface ViewContextType {
 
 const ViewContext = createContext<ViewContextType | undefined>(undefined)
 
-export function ViewProvider({ children }: { children: React.ReactNode }) {
-  const [activeView, setActiveView] = useState<CommandView>('workspace')
+export function ViewProvider({ children, initialView = 'workspace' }: { children: React.ReactNode, initialView?: CommandView }) {
+  const [activeView, setActiveView] = useState<CommandView>(initialView)
 
   return (
     <ViewContext.Provider value={{ activeView, setActiveView }}>

@@ -19,11 +19,13 @@ import {
   CheckCircle2,
   X,
   ExternalLink,
+  LogOut,
 } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { useView } from '@/lib/context/ViewContext'
 import { useImage } from '@/lib/context/ImageContext'
+import { useAuth } from '@/lib/context/AuthContext'
 import { getFileDownloadUrl } from '@/lib/api'
 import { CHANDRA_09_DEMO_DATA } from '@/lib/demoData'
 
@@ -75,6 +77,7 @@ export function TacticalDashboard() {
   const [selectedInspectItem, setSelectedInspectItem] = useState<any | null>(null)
   const [inspectTab, setInspectTab] = useState<'stages' | 'pdf' | 'targets'>('stages')
   const { data: dashboardData } = useDashboard()
+  const { logout, user } = useAuth()
 
   // Deduplicate and merge real MongoDB telemetry activity with fallback mission logs
   const liveActivities = (dashboardData?.recent_activities || []).map((act: any, i: number) => ({
@@ -635,6 +638,46 @@ export function TacticalDashboard() {
               </tbody>
             </table>
           </div>
+        </GlassCard>
+      </motion.div>
+
+      {/* Mission Security & Session Controls (Logout Section Below Dashboard) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="mt-8"
+      >
+        <GlassCard className="p-6 border-destructive/40 bg-gradient-to-r from-destructive/10 via-slate-950 to-destructive/10 shadow-[0_0_25px_rgba(239,68,68,0.15)] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-destructive/20 border border-destructive/50 flex items-center justify-center text-destructive shrink-0 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+              <LogOut className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-bold text-foreground">Mission Security Controls // Active Operator</h4>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-destructive/20 text-destructive font-bold border border-destructive/40">
+                  SECURE SESSION
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                OPERATOR: <span className="text-primary font-bold">{user?.full_name || user?.email || 'COMMANDER CHANDRA-09'}</span> | ACCESS LEVEL: TOP SECRET / RADIOMETRIC
+              </p>
+            </div>
+          </div>
+
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => {
+              logout()
+              window.location.href = '/login'
+            }}
+            className="w-full sm:w-auto px-6 py-3 rounded-xl font-mono text-xs font-bold tracking-wider bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-[0_0_25px_rgba(239,68,68,0.5)] transition-all flex items-center justify-center gap-2 border border-destructive/50 shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>TERMINATE SESSION & LOGOUT</span>
+          </motion.button>
         </GlassCard>
       </motion.div>
 

@@ -5,14 +5,14 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value || request.cookies.get('token')?.value
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/signup']
+  const publicRoutes = ['/', '/login', '/signup']
 
   // Protected routes that require authentication
-  const protectedRoutes = ['/', '/dashboard']
+  const protectedRoutes = ['/command-center', '/dashboard', '/workspace', '/history']
 
-  // If user is authenticated and tries to access auth pages, redirect to dashboard
-  if (token && publicRoutes.includes(pathname)) {
-    return NextResponse.redirect(new URL('/', request.url))
+  // If user is authenticated and tries to access auth pages, redirect to command center
+  if (token && (pathname === '/login' || pathname === '/signup')) {
+    return NextResponse.redirect(new URL('/command-center', request.url))
   }
 
   // If user is not authenticated and tries to access protected routes, redirect to login
@@ -24,5 +24,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/login', '/signup', '/dashboard'],
+  matcher: ['/', '/login', '/signup', '/command-center', '/dashboard', '/workspace', '/history'],
 }

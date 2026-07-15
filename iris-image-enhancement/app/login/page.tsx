@@ -39,7 +39,7 @@ export default function LoginPage() {
         localStorage.setItem('auth_user', JSON.stringify(userData))
         document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`
         document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`
-        window.location.href = '/'
+        window.location.href = '/command-center'
       } else {
         setError('Authentication succeeded but token was missing. Please try again.')
       }
@@ -81,10 +81,10 @@ export default function LoginPage() {
           transition={{ delay: 0.1, duration: 0.4 }}
           className="text-center mb-8"
         >
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/30 mb-4">
-            <span className="text-2xl">🛰️</span>
+          <div className="inline-flex items-center justify-center p-1 rounded-2xl bg-gradient-to-br from-primary/30 to-secondary/20 border border-primary/50 shadow-[0_0_30px_rgba(0,240,255,0.5)] mb-4">
+            <img src="/isro-logo.jpg" alt="ISRO IRIS Logo" className="w-20 h-20 rounded-xl object-cover" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-1">ISRO IRIS</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-teal-300 to-white bg-clip-text text-transparent mb-1">ISRO IRIS</h1>
           <p className="text-sm text-muted-foreground">Thermal Imaging Command Center</p>
         </motion.div>
 

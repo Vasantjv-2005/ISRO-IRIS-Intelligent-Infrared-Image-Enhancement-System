@@ -29,5 +29,25 @@ class ComparisonController:
             upload_id=upload_id,
         )
 
+    async def compare_multi_images(
+        self,
+        db: AsyncIOMotorDatabase,
+        upload_id: str,
+        enhanced_path: str | None = None,
+        colorized_path: str | None = None,
+        detected_path: str | None = None,
+    ):
+        """
+        Generate multi-stage comparison image (Enhanced, Colorized, Detected).
+        """
+        return await comparison_service.generate_multi_comparison(
+            db=db,
+            upload_id=upload_id,
+            enhanced_path=enhanced_path,
+            colorized_path=colorized_path,
+            detected_path=detected_path,
+        )
+
 
 comparison_controller = ComparisonController()
+

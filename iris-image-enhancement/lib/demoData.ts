@@ -98,16 +98,16 @@ export function generateThermalSvgUrl(type: 'raw' | 'enhanced' | 'inferno' | 'ma
 export const CHANDRA_09_DEMO_DATA: ImageData = {
   upload_id: 'chandra-09-ir-sample-8842',
   filename: 'CHANDRA09_THERMAL_SECTOR_T88.TIFF',
-  file_path: '/samples/chandra09_thermal.tiff',
+  file_path: 'uploads/raw/enhanced_ai.jpg',
   resolution: '3840 x 2160 (4K UHD Thermal)',
   channels: 1,
   format: '16-bit Radiometric TIFF',
-  original_image: generateThermalSvgUrl('raw'),
-  preprocessed_image: generateThermalSvgUrl('raw'),
-  enhanced_image: generateThermalSvgUrl('enhanced'),
-  colorized_image: generateThermalSvgUrl('rainbow'),
-  detected_image: 'outputs/detected/5a012b45f7694eea8730e050a9dbe4ba.jpg',
-  processed_image: generateThermalSvgUrl('enhanced'),
+  original_image: 'uploads/raw/enhanced_ai.jpg',
+  preprocessed_image: 'uploads/raw/enhanced_ai.jpg',
+  enhanced_image: 'outputs/verified_isro/step1_4k_enhanced.jpg',
+  colorized_image: 'outputs/verified_isro/step2_true_color.jpg',
+  detected_image: 'outputs/detected/enhanced_ai.jpg',
+  processed_image: 'outputs/detected/enhanced_ai.jpg',
   report_path: 'reports/CHANDRA_09_FULL_MISSION_REPORT.pdf',
   detections: [
     {

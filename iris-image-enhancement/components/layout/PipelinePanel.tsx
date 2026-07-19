@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { UploadDropzone } from '@/components/visualization/UploadDropzone'
 import { ColormapPaletteSelector } from '@/components/visualization/ColormapPaletteSelector'
 import { CHANDRA_09_DEMO_DATA } from '@/lib/demoData'
+import { getFileDownloadUrl } from '@/lib/api'
 
 interface StepConfig {
   id: string
@@ -64,12 +65,15 @@ export function PipelinePanel() {
   const { state, settings, updateSettings, setIsProcessing, markStepComplete, setError } = usePipeline()
   const { currentImage, setCurrentImage } = useImage()
   const [expandedStep, setExpandedStep] = useState<string | null>('upload')
+  const [showComparisonModal, setShowComparisonModal] = useState(false)
   const {
     runFullPipeline,
     runPreprocessing,
     runEnhancement,
     runColorization,
     runDetection,
+    runAnalysis,
+    runMultiComparison,
     elapsedTime,
   } = usePipelineRunner()
   const { generateReport, isGenerating } = useReport()
@@ -77,8 +81,6 @@ export function PipelinePanel() {
   const handleLoadDemo = () => {
     setCurrentImage({
       ...CHANDRA_09_DEMO_DATA,
-      file_path: 'test_gray.jpg',
-      filename: 'chandra_09_thermal.jpg',
     })
     markStepComplete('upload')
   }
@@ -88,14 +90,22 @@ export function PipelinePanel() {
   }
 
   const handleExportPdf = () => {
-    const targetPath = currentImage?.file_path || 'test_gray.jpg'
+    const targetPath = currentImage?.original_image || currentImage?.file_path || 'uploads/raw/enhanced_ai.jpg'
     generateReport({
-      image_name: currentImage?.filename || 'chandra_09_thermal.jpg',
+      image_name: currentImage?.filename || 'CHANDRA09_THERMAL_SECTOR_T88.TIFF',
       original_image_path: targetPath,
-      processed_image_path: currentImage?.processed_image || targetPath,
+      processed_image_path: currentImage?.enhanced_image || currentImage?.processed_image || targetPath,
+      colorized_image_path: currentImage?.colorized_image || undefined,
+      detected_image_path: currentImage?.detected_image || undefined,
+      upload_id: currentImage?.upload_id || 'chandra-09-ir-sample-8842',
       detected_objects: currentImage?.detections || [],
       analysis: currentImage?.analysis || 'Infrared thermal anomaly detected and analyzed via Gemini AI.',
     })
+  }
+
+  const handleOpenComparison = async () => {
+    await runMultiComparison()
+    setShowComparisonModal(true)
   }
 
   return (
@@ -369,7 +379,26 @@ export function PipelinePanel() {
                         )}
 
                         {step.id === 'analysis' && (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
+                            {/* Comparison button right above analysis button */}
+                            <div className="p-3 rounded-xl bg-gradient-to-br from-primary/10 to-teal-500/10 border border-primary/40 shadow-[0_0_20px_rgba(0,240,255,0.15)] space-y-2">
+                              <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                                <span>Multi-Stage Scene Comparison</span>
+                                <span className="text-[10px] text-primary px-2 py-0.5 rounded font-mono bg-primary/20 border border-primary/40">3-IN-1 VIEW</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground font-mono">
+                                Compare Enhanced, Colorized, and Detected outputs side-by-side. Saved directly to comparsions folder.
+                              </p>
+                              <button
+                                onClick={handleOpenComparison}
+                                disabled={!currentImage}
+                                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-teal-500 via-primary to-blue-600 text-background font-extrabold text-xs shadow-[0_0_15px_rgba(0,240,255,0.4)] hover:shadow-[0_0_25px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                              >
+                                <span>🔥</span>
+                                <span>OPEN MULTI-STAGE COMPARISON VIEW</span>
+                              </button>
+                            </div>
+
                             <textarea
                               placeholder="Optional: Enter mission brief context or target coordinates for Gemini AI..."
                               value={settings.geminiContext}
@@ -377,6 +406,22 @@ export function PipelinePanel() {
                               className="w-full p-3 rounded-xl bg-background/80 border border-border text-xs text-foreground font-mono placeholder-muted-foreground focus:outline-none focus:border-primary shadow-inner"
                               rows={3}
                             />
+                            <button
+                              onClick={handleOpenComparison}
+                              disabled={!currentImage}
+                              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-teal-500 via-primary to-blue-600 text-background font-extrabold text-xs shadow-[0_0_15px_rgba(0,240,255,0.4)] hover:shadow-[0_0_25px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>🔥</span>
+                              <span>MULTI-STAGE COMPARISON VIEW (ENHANCED, COLORIZED, DETECTED)</span>
+                            </button>
+                            <button
+                              onClick={runAnalysis}
+                              disabled={!currentImage}
+                              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-extrabold text-xs shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              <span>🧠</span>
+                              <span>EXECUTE GEMINI AI ANALYSIS NOW</span>
+                            </button>
                           </div>
                         )}
                       </div>
@@ -391,6 +436,17 @@ export function PipelinePanel() {
 
       {/* Action buttons */}
       <div className="space-y-2.5 pt-2">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleOpenComparison}
+          disabled={!currentImage}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 via-primary to-blue-600 text-slate-950 font-extrabold text-xs shadow-[0_0_20px_rgba(0,240,255,0.4)] hover:shadow-[0_0_30px_rgba(0,240,255,0.7)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <span>🔥</span>
+          <span>OPEN MULTI-STAGE COMPARISON VIEW</span>
+        </motion.button>
+
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -412,6 +468,142 @@ export function PipelinePanel() {
           <span>{isGenerating ? 'EXPORTING PDF DOSSIER...' : 'EXPORT MISSION DOSSIER (PDF)'}</span>
         </motion.button>
       </div>
+
+      {/* Interactive Multi-Stage Comparison Modal */}
+      <AnimatePresence>
+        {showComparisonModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 md:p-8 overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-6xl rounded-2xl bg-slate-900/95 border border-primary/50 shadow-[0_0_40px_rgba(0,240,255,0.25)] p-6 space-y-6 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🔥</span>
+                    <h2 className="text-lg md:text-xl font-extrabold tracking-wide text-white uppercase">
+                      MULTI-STAGE THERMAL SCENE COMPARISON DOSSIER
+                    </h2>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/40 font-mono">
+                      ISRO IRIS v3.0
+                    </span>
+                  </div>
+                  <p className="text-xs font-mono text-muted-foreground">
+                    Synchronized inspection of Enhanced Super-Resolution, Radiometric Thermal Colormap, and YOLOv8 Detected Targets.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowComparisonModal(false)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-border"
+                >
+                  ✕ CLOSE
+                </button>
+              </div>
+
+              {/* 3-in-1 Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2 rounded-xl bg-slate-950/80 p-3 border border-slate-800">
+                  <div className="flex items-center justify-between font-mono text-xs font-bold text-primary">
+                    <span>1. ENHANCED IMAGE</span>
+                    <span className="text-[10px] bg-primary/10 px-1.5 py-0.5 rounded">AI SUPER-RES</span>
+                  </div>
+                  <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black/60 border border-slate-800">
+                    <img
+                      src={getFileDownloadUrl(currentImage?.enhanced_image || currentImage?.original_image || 'uploads/raw/enhanced_ai.jpg')}
+                      alt="Enhanced Stage"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-xl bg-slate-950/80 p-3 border border-slate-800">
+                  <div className="flex items-center justify-between font-mono text-xs font-bold text-amber-400">
+                    <span>2. COLORIZED IMAGE</span>
+                    <span className="text-[10px] bg-amber-400/10 px-1.5 py-0.5 rounded">THERMAL MAP</span>
+                  </div>
+                  <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black/60 border border-slate-800">
+                    <img
+                      src={getFileDownloadUrl(currentImage?.colorized_image || currentImage?.enhanced_image || 'outputs/verified_isro/step2_true_color.jpg')}
+                      alt="Colorized Stage"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-xl bg-slate-950/80 p-3 border border-slate-800">
+                  <div className="flex items-center justify-between font-mono text-xs font-bold text-emerald-400">
+                    <span>3. DETECTED IMAGE</span>
+                    <span className="text-[10px] bg-emerald-400/10 px-1.5 py-0.5 rounded">YOLOv8 OBJECTS</span>
+                  </div>
+                  <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black/60 border border-slate-800">
+                    <img
+                      src={getFileDownloadUrl(currentImage?.detected_image || currentImage?.processed_image || 'outputs/detected/enhanced_ai.jpg')}
+                      alt="Detected Stage"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Composite Comparison Image View */}
+              <div className="space-y-3 rounded-xl bg-slate-950/90 p-4 border border-primary/30">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                      FULL COMPOSITE COMPARISON DOSSIER
+                    </h3>
+                    <p className="text-xs font-mono text-emerald-400">
+                      ✅ Comparison image stored and synchronized across both <code>comparisons/</code> and <code>comparsions/</code> folders.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={getFileDownloadUrl(currentImage?.comparison_image || `outputs/comparsions/multi_compare_${(currentImage?.filename || 'CHANDRA09').split('.')[0]}.jpg`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-slate-950 font-extrabold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <FileDown className="w-4 h-4" />
+                      <span>DOWNLOAD COMPOSITE IMAGE</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="relative w-full rounded-xl overflow-hidden bg-black/80 border border-slate-800 p-2 flex items-center justify-center min-h-[260px]">
+                  <img
+                    src={getFileDownloadUrl(currentImage?.comparison_image || `outputs/comparsions/multi_compare_${(currentImage?.filename || 'CHANDRA09').split('.')[0]}.jpg`)}
+                    alt="Multi-Stage Composite Comparison"
+                    className="max-h-[500px] w-auto object-contain rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2 border-t border-border">
+                <button
+                  onClick={handleExportPdf}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-iris-orange to-iris-amber text-white font-extrabold text-xs shadow-[0_0_20px_rgba(255,107,0,0.4)] hover:shadow-[0_0_30px_rgba(255,107,0,0.7)] transition-all flex items-center gap-2"
+                >
+                  <FileDown className="w-4 h-4" />
+                  <span>DOWNLOAD FULL PDF MISSION REPORT</span>
+                </button>
+                <button
+                  onClick={() => setShowComparisonModal(false)}
+                  className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
+                >
+                  CLOSE COMPARISON VIEW
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

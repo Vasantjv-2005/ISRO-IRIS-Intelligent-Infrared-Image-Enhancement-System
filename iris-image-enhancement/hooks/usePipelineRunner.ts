@@ -9,6 +9,7 @@ import { colorizationService } from '@/services/colorization'
 import { detectionService } from '@/services/detection'
 import { analysisService } from '@/services/analysis'
 import { reportService } from '@/services/report'
+import { comparisonService } from '@/services/comparison'
 import { usePipeline, PipelineStep } from '@/lib/context/PipelineContext'
 import { useImage } from '@/lib/context/ImageContext'
 import { getFileDownloadUrl } from '@/lib/api'
@@ -22,8 +23,8 @@ export function usePipelineRunner() {
 
   const runFullPipeline = async () => {
     // Determine the image path to process
-    const targetPath = currentImage?.file_path || 'test_gray.jpg'
-    const filename = currentImage?.filename || targetPath.split('/').pop() || targetPath.split('\\').pop() || 'image.jpg'
+    const targetPath = currentImage?.file_path || currentImage?.original_image || 'uploads/raw/5a012b45f7694eea8730e050a9dbe4ba.jpg'
+    const filename = currentImage?.filename || targetPath.split('/').pop() || targetPath.split('\\').pop() || 'CHANDRA09_THERMAL_SECTOR_T88.TIFF'
 
     setIsProcessing(true)
     setError(null)
@@ -131,6 +132,7 @@ export function usePipelineRunner() {
           original_image_path: targetPath,
           processed_image_path: enhancedImgPath,
           colorized_image_path: colorizedImgPath,
+          detected_image_path: detectedImgPath,
           upload_id: currentImage?.upload_id,
           detected_objects: detectedObjects,
           analysis: analysisText,
@@ -182,7 +184,7 @@ export function usePipelineRunner() {
   }
 
   const runPreprocessing = async () => {
-    const targetPath = currentImage?.file_path || currentImage?.original_image || 'test_gray.jpg'
+    const targetPath = currentImage?.file_path || currentImage?.original_image || 'uploads/raw/5a012b45f7694eea8730e050a9dbe4ba.jpg'
     setIsProcessing(true)
     setError(null)
     setProcessingStatus('Running AI Spatial Denoising & Contrast Enhancement...')
@@ -211,7 +213,7 @@ export function usePipelineRunner() {
   }
 
   const runEnhancement = async () => {
-    const targetPath = currentImage?.file_path || currentImage?.original_image || 'test_gray.jpg'
+    const targetPath = currentImage?.file_path || currentImage?.original_image || 'uploads/raw/5a012b45f7694eea8730e050a9dbe4ba.jpg'
     setIsProcessing(true)
     setError(null)
     setProcessingStatus(`Executing AI Super-Resolution (${settings.enhancementLevel}X 4K Quality)...`)
@@ -237,7 +239,7 @@ export function usePipelineRunner() {
   }
 
   const runColorization = async () => {
-    const targetPath = currentImage?.file_path || currentImage?.original_image || 'test_gray.jpg'
+    const targetPath = currentImage?.file_path || currentImage?.original_image || 'uploads/raw/5a012b45f7694eea8730e050a9dbe4ba.jpg'
     setIsProcessing(true)
     setError(null)
     setProcessingStatus(`Applying Thermal Radiometric Colormap (${settings.colormap.toUpperCase()})...`)
@@ -267,7 +269,7 @@ export function usePipelineRunner() {
   }
 
   const runDetection = async () => {
-    const targetPath = currentImage?.file_path || currentImage?.original_image || 'test_gray.jpg'
+    const targetPath = currentImage?.file_path || currentImage?.original_image || 'uploads/raw/5a012b45f7694eea8730e050a9dbe4ba.jpg'
     setIsProcessing(true)
     setError(null)
     setProcessingStatus('Running YOLOv8 Neural Object Detection...')
@@ -298,15 +300,76 @@ export function usePipelineRunner() {
     }
   }
 
+  const runAnalysis = async () => {
+    if (!currentImage) return
+    const targetPath = currentImage.file_path || currentImage.original_image || 'uploads/raw/5a012b45f7694eea8730e050a9dbe4ba.jpg'
+    const filename = currentImage.filename || 'CHANDRA09_THERMAL_SECTOR_T88.TIFF'
+    setIsProcessing(true)
+    setError(null)
+    updateStep('analysis')
+    setProcessingStatus('Running Gemini AI Scientific Scene Interpretation...')
+    try {
+      const analysisRes = await analysisService.process({
+        image_name: filename,
+        detected_objects: currentImage.detections || [],
+      })
+      markStepComplete('analysis')
+      setCurrentImage({
+        ...currentImage,
+        analysis: analysisRes.analysis,
+      } as any)
+      toast.success('Gemini AI scene analysis completed')
+    } catch (err: any) {
+      const errMsg = err.response?.data?.detail || err.message || 'Analysis failed'
+      setError(errMsg)
+      toast.error(`Analysis Error: ${errMsg}`)
+    } finally {
+      setIsProcessing(false)
+      setProcessingStatus('')
+    }
+  }
+
+  const runMultiComparison = async () => {
+    if (!currentImage) return null
+    setIsProcessing(true)
+    setError(null)
+    setProcessingStatus('Generating Multi-Stage Comparison (Enhanced, Colorized, Detected)...')
+    try {
+      const compRes = await comparisonService.compareMulti({
+        upload_id: currentImage.upload_id || 'chandra-09-ir-sample-8842',
+        enhanced_image_path: currentImage.enhanced_image,
+        colorized_image_path: currentImage.colorized_image,
+        detected_image_path: currentImage.detected_image,
+      })
+      setCurrentImage({
+        ...currentImage,
+        comparison_image: compRes.comparison_image_path,
+      } as any)
+      toast.success('Multi-stage comparison image saved to comparsions folder!')
+      return compRes
+    } catch (err: any) {
+      const errMsg = err.response?.data?.detail || err.message || 'Comparison generation failed'
+      setError(errMsg)
+      toast.error(`Comparison Error: ${errMsg}`)
+      return null
+    } finally {
+      setIsProcessing(false)
+      setProcessingStatus('')
+    }
+  }
+
   return {
     runFullPipeline,
     runPreprocessing,
     runEnhancement,
     runColorization,
     runDetection,
+    runAnalysis,
+    runMultiComparison,
     elapsedTime,
     isProcessing: state.isProcessing,
     processingStatus: state.processingStatus,
     error: state.error,
   }
 }
+

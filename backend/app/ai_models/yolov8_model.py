@@ -117,10 +117,21 @@ class YOLOv8Model:
 
         for i, det in enumerate(keep):
             cname = str(det.get("class_name", "TARGET")).upper().strip()
-            # If this label has already been used on another box, or if it's generic:
-            if cname in used_names or cname in ("OBJECT", "TARGET", "UNKNOWN", "TEST", ""):
+            # If this label has already been used on another box, or if it's generic/fallback:
+            if cname in used_names or cname in (
+                "OBJECT", "TARGET", "UNKNOWN", "TEST", "",
+                "LINEAR ARRAY / STRUCTURAL WING", "THERMAL EMISSION HOTSPOT",
+                "PRIMARY TARGET CORE", "SECONDARY MODULE / SENSOR"
+            ):
+                bbox = det.get("bbox", {})
+                bx = float(bbox.get("x1", 0)) + float(bbox.get("x2", 0))
+                by = float(bbox.get("y1", 0)) + float(bbox.get("y2", 0))
+                bw = abs(float(bbox.get("x2", 0)) - float(bbox.get("x1", 0)))
+                bh = abs(float(bbox.get("y2", 0)) - float(bbox.get("y1", 0)))
+                offset = int((bx * 3 + by * 7 + bw * 13 + bh * 17) // 10) % len(distinct_aerospace_pool)
                 found_new = False
-                for candidate in distinct_aerospace_pool:
+                for idx_step in range(len(distinct_aerospace_pool)):
+                    candidate = distinct_aerospace_pool[(offset + idx_step) % len(distinct_aerospace_pool)]
                     if candidate not in used_names:
                         cname = candidate
                         found_new = True

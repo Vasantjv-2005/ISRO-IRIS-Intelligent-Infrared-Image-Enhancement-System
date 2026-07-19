@@ -47,10 +47,10 @@ class ReportController:
         det_path = getattr(request, "detected_image_path", None)
 
         if doc:
-            orig_path = orig_path or doc.raw_path or getattr(doc, "filepath", None)
-            enh_path = enh_path or doc.enhanced_path
-            col_path = col_path or doc.colorized_path
-            det_path = det_path or doc.detected_path
+            orig_path = orig_path or getattr(doc, "file_path", None) or getattr(doc, "raw_path", None) or getattr(doc, "filepath", None)
+            enh_path = enh_path or getattr(doc, "enhanced_path", None)
+            col_path = col_path or getattr(doc, "colorized_path", None)
+            det_path = det_path or getattr(doc, "detected_path", None)
 
         report_path = await report_generation_service.generate_report_async(
             report_path=f"reports/{request.image_name.split('.')[0]}_report.pdf",

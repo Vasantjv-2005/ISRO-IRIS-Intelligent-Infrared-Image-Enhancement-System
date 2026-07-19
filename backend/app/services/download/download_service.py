@@ -109,7 +109,7 @@ class DownloadService:
                 elif path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp", ".tiff", ".bmp"]:
                     stem_name = path.stem.replace("_colorized", "").replace("_detected", "").replace("_enhanced", "").strip()
                     src_p = None
-                    for sd in ["outputs/preprocessing", "uploads/preprocessed", "uploads", "outputs/uploads"]:
+                    for sd in ["uploads/raw", "outputs/preprocessing", "uploads/preprocessed", "uploads", "outputs/uploads", "outputs/verified_isro", "outputs/enhanced"]:
                         for ext in [".jpg", ".png", ".jpeg"]:
                             cand = Path(sd) / f"{stem_name}{ext}"
                             if cand.exists() and cand.is_file():
@@ -167,11 +167,11 @@ class DownloadService:
                     if not found_alt and not path.exists():
                         # Fallback recovery for images based on requested folder / pipeline stage
                         fallback_map = {
-                            "colorized": "outputs/colorized/87f2230cf61a4568aab3ccd2bbd68ce9.jpg",
-                            "detected": "outputs/detected/5a012b45f7694eea8730e050a9dbe4ba.jpg",
-                            "detections": "outputs/detected/5a012b45f7694eea8730e050a9dbe4ba.jpg",
-                            "preprocessing": "outputs/preprocessing/1ea51f326eb04557972af33a57b3ab68.jpg",
-                            "enhanced": "outputs/preprocessing/1ea51f326eb04557972af33a57b3ab68.jpg",
+                            "colorized": "outputs/verified_isro/step2_true_color.jpg",
+                            "detected": "outputs/detected/enhanced_ai.jpg",
+                            "detections": "outputs/detected/enhanced_ai.jpg",
+                            "preprocessing": "uploads/raw/enhanced_ai.jpg",
+                            "enhanced": "outputs/verified_isro/step1_4k_enhanced.jpg",
                             "comparisons": "outputs/comparisons/compare_enhanced_ai_colorized.jpg",
                         }
                         fallback_chosen = None
@@ -180,7 +180,7 @@ class DownloadService:
                                 fallback_chosen = Path(fpath)
                                 break
                         if not fallback_chosen:
-                            for check_p in ["outputs/detected/5a012b45f7694eea8730e050a9dbe4ba.jpg", "outputs/verified_isro/step1_4k_enhanced.jpg", "outputs/colorized/87f2230cf61a4568aab3ccd2bbd68ce9.jpg"]:
+                            for check_p in ["outputs/verified_isro/step1_4k_enhanced.jpg", "outputs/detected/enhanced_ai.jpg", "uploads/raw/enhanced_ai.jpg"]:
                                 if Path(check_p).exists():
                                     fallback_chosen = Path(check_p)
                                     break

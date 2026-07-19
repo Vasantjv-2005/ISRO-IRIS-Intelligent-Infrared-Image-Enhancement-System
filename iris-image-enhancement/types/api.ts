@@ -152,6 +152,14 @@ export interface ComparisonRequestSchema {
   upload_id: string
 }
 
+export interface MultiComparisonRequestSchema {
+  upload_id: string
+  enhanced_image_path?: string
+  colorized_image_path?: string
+  detected_image_path?: string
+}
+
+
 export interface ComparisonResponseSchema {
   upload_id: string
   status: string

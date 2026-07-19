@@ -15,6 +15,7 @@ export interface ImageData {
   colorized_image?: string
   detected_image?: string
   processed_image?: string
+  comparison_image?: string
   report_path?: string
   detections?: any[]
   analysis?: string

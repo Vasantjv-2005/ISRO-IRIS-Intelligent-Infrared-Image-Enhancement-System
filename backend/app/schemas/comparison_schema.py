@@ -34,6 +34,21 @@ class ComparisonRequestSchema(BaseModel):
     )
 
 
+class MultiComparisonRequestSchema(BaseModel):
+    """
+    Request schema for multi-stage comparison (Enhanced, Colorized, Detected).
+    """
+
+    upload_id: str = Field(
+        ...,
+        description="Unique upload ID or filename stem"
+    )
+    enhanced_image_path: Optional[str] = None
+    colorized_image_path: Optional[str] = None
+    detected_image_path: Optional[str] = None
+
+
+
 class ComparisonResponseSchema(BaseModel):
     """
     Response schema for image comparison.

@@ -265,21 +265,13 @@ class ReportGenerationService:
                     col = str(Path(p_str))
                     break
 
-        if not col and stem in ("enhanced_ai_colorized", "61eab4adc5e24128a806ad9ae1028449", "colorized", "enhanced_ai", "CHANDRA09_THERMAL_SECTOR_T88", "chandra-09-ir-sample-8842", "CHANDRA09"):
-            for p_str in [
-                "outputs/colorized/enhanced_ai_colorized.jpg",
-                "outputs/verified_isro/step2_true_color.jpg",
-            ]:
-                if Path(p_str).exists():
-                    col = str(Path(p_str))
-                    break
-
         det = _resolve(
             detected_image_path or kwargs.get("detected_image_path") or kwargs.get("detected_path") or kwargs.get("detected_image"),
             ["outputs/detections", "outputs/detected", "uploads/detected"],
             ["_detected", ""],
         )
 
+        # 1. On-the-fly Enhancement if not found yet
         if not enh and (preproc or orig) and Path(preproc or orig).exists():
             try:
                 from app.services.ai.enhancement_service import enhancement_service
@@ -292,6 +284,8 @@ class ReportGenerationService:
                 logger.warning("Auto-enhancement discovery fallback failed: %s", enh_err)
 
         source_base = enh or orig or preproc
+
+        # 2. On-the-fly Colorization if not found yet (before static sample fallbacks!)
         if not col and source_base and Path(source_base).exists():
             try:
                 from app.services.ai.colorization_service import colorization_service
@@ -303,6 +297,7 @@ class ReportGenerationService:
             except Exception as col_err:
                 logger.warning("Auto-colorization discovery fallback failed: %s", col_err)
 
+        # 3. On-the-fly Detection if not found yet
         if not det and source_base and Path(source_base).exists():
             try:
                 from app.services.ai.detection_service import detection_service
@@ -318,6 +313,16 @@ class ReportGenerationService:
                     det = str(res_det["output_path"])
             except Exception as det_err:
                 logger.warning("Auto-detection discovery fallback failed: %s", det_err)
+
+        # 4. Static sample fallbacks only if still not found and matching demo IDs
+        if not col and stem in ("enhanced_ai_colorized", "61eab4adc5e24128a806ad9ae1028449", "colorized", "enhanced_ai", "CHANDRA09_THERMAL_SECTOR_T88", "chandra-09-ir-sample-8842", "CHANDRA09"):
+            for p_str in [
+                "outputs/colorized/enhanced_ai_colorized.jpg",
+                "outputs/verified_isro/step2_true_color.jpg",
+            ]:
+                if Path(p_str).exists():
+                    col = str(Path(p_str))
+                    break
 
         return {
             "original": orig,

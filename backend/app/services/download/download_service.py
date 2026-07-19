@@ -165,6 +165,18 @@ class DownloadService:
                         found_alt = True
 
                     if not found_alt and not path.exists():
+                        try:
+                            from app.services.ai.report_generation_service import report_generation_service
+                            auto_paths = report_generation_service._auto_discover_image_paths(image_name=stem_name, upload_id=stem_name)
+                            stage_key = "colorized" if "colorized" in str(file_path).lower() else ("detected" if ("detected" in str(file_path).lower() or "detections" in str(file_path).lower()) else ("enhanced" if "enhanced" in str(file_path).lower() else None))
+                            if stage_key and auto_paths.get(stage_key) and Path(auto_paths[stage_key]).exists():
+                                path = Path(auto_paths[stage_key])
+                                found_alt = True
+                                logger.info("Auto-discovered stage image via report_generation_service for %s -> %s", file_path, path)
+                        except Exception as auto_err:
+                            logger.warning("Auto-discovery in download_service fallback error: %s", auto_err)
+
+                    if not found_alt and not path.exists():
                         # Fallback recovery for images based on requested folder / pipeline stage
                         fallback_map = {
                             "colorized": "outputs/verified_isro/step2_true_color.jpg",
